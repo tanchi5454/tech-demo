@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-app-deployment
+  labels:
+    app: todo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: todo
+  template:
+    metadata:
+      labels:
+        app: todo
+    spec:
+      serviceAccountName: wiz-app-sa # RBACで作成したサービスアカウント
+      containers:
+      - name: todo-app
+        # サンプルのToDoリストアプリケーションイメージ
+        # 演習の要件により、`wizexercise.txt`を含む独自のイメージをビルドしてレジストリにプッシュし、
+        # このイメージ名を置き換えてください。
+        # 例: gcr.io/your-project-id/wiz-todo-app:v1
+        image: "agustinlare/nodejs-todo-app-mongo"
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - secretRef:
+            name: mongo-secret # Secretから環境変数を読み込む

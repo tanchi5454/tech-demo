@@ -5,20 +5,22 @@ Technical demo environment on GCP with Terraform and GKE
 .
 ├── .github/
 │   └── workflows/
-│       ├── terraform.yml       # インフラ構築用CI/CDパイプライン
-│       └── deploy-app.yml      # アプリケーションデプロイ用CI/CDパイプライン
+│       ├── terraform.yml           # インフラ構築用CI/CDパイプライン
+│       └── deploy-app.yml        # アプリケーションデプロイ用CI/CDパイプライン
 ├── app/
-│   ├── Dockerfile            # アプリケーションのコンテナイメージ定義
-│   ├── main.py               # アプリケーションコード (例: Python Flask)
-│   ├── requirements.txt      # Python依存ライブラリ
+│   ├── Dockerfile                # アプリケーションのコンテナイメージ定義
 │   └── wizexercise.txt       # 課題要件のファイル 
 ├── k8s/
-│   ├── deployment.yml        # Kubernetes Deploymentマニフェスト
-│   ├── service.yml           # Kubernetes Serviceマニフェスト
-│   └── ingress.yml           # Kubernetes Ingressマニフェスト
+│   ├── 00-secret.yaml                 # MongoDBの接続情報を保持するSecret
+│   ├── 01-rbac.yaml                     # アプリケーションにクラスタ全体の管理者権限を付与
+│   ├── 02-deployment.yaml      # Webアプリケーションをデプロイ
+│   ├── 03-service.yml                  # Deploymentをクラスタ内で公開する
+│   └── 04-ingress.yml                  # HTTP(S)ロードバランサ作成
 └── terraform/
-    ├── main.tf               # メインのTerraform定義ファイル
-    ├── variables.tf          # 変数定義
-    └── outputs.tf            # 出力定義
+    ├── main.tf                # メインのGCPリソース (VPC, Firewall, Storage)
+    ├── variables.tf        # 変数定義
+    ├── vm.tf                   # MongoDB VM関連のリソース
+    ├── gke.tf                  # GKEクラスタ関連のリソース
+    └── outputs.tf          # 出力値 (VMのIPアドレスなど)
 ```
 

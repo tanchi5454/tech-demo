@@ -1,0 +1,39 @@
+name: 'Deploy App to GKE'
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - 'k8s/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Authenticate to Google Cloud
+        uses: 'google-github-actions/auth@v1'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set up Cloud SDK
+        uses: 'google-github-actions/setup-gcloud@v1'
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Build and Push Docker Image
+        run: |
+          docker build -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-repo/my-app:${{ github.sha }} ./app
+          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-repo/my-app:${{ github.sha }}
+
+      - name: Deploy to GKE
+        run: |
+          gcloud container clusters get-credentials my-gke-cluster --zone us-central1-a
+          # Deploymentのイメージを更新
+          sed -i "s|IMAGE_PLACEHOLDER|us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-repo/my-app:${{ github.sha }}|g" k8s/deployment.yml
+          kubectl apply -f k8s/
