@@ -117,3 +117,20 @@ resource "google_storage_bucket_iam_member" "public_read_access" {
   role   = "roles/storage.objectViewer"
   member = "allUsers"
 }
+
+# Artifact Registry APIを有効化
+resource "google_project_service" "artifactregistry" {
+  service = "artifactregistry.googleapis.com"
+  disable_on_destroy = false
+}
+
+# Dockerイメージを保存するリポジトリを作成
+resource "google_artifact_registry_repository" "my_app_repo" {
+  # APIが有効になった後に作成されるように依存関係を設定
+  depends_on = [google_project_service.artifactregistry]
+
+  location      = "asia-northeast1" # リージョンはご自身の環境に合わせてください
+  repository_id = "tech-exercise-repo" # リポジトリの名前
+  description   = "Docker repository for the Wiz tech exercise"
+  format        = "DOCKER" # 保存するフォーマットを指定
+}
