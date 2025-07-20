@@ -30,5 +30,5 @@ variable "mongo_vm_name" {
 variable "storage_bucket_name" {
   description = "The name for the GCS backup bucket. Must be globally unique."
   type        = string
-  default     = "tech-exercise-466314" # 必ず一意な名前に変更してください
+  default     = "tech-exer" # 必ず一意な名前に変更してください
 }

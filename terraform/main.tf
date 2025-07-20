@@ -146,7 +146,7 @@ resource "google_artifact_registry_repository" "my_app_repo" {
   depends_on = [google_project_service.apis]
 
   location      = "asia-northeast1" # リージョンはご自身の環境に合わせてください
-  repository_id = "tech-exercise-repo" # リポジトリの名前
+  repository_id = "tech-exer-repo" # リポジトリの名前
   description   = "Docker repository for the Wiz tech exercise"
   format        = "DOCKER" # 保存するフォーマットを指定
 }
