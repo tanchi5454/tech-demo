@@ -3,6 +3,35 @@ provider "google" {
   region  = "asia-northeast1"
 }
 
+# APIを有効化する
+
+# Identity and Access Management (IAM) API
+resource "google_project_service" "iam" {
+  project = var.project_id
+  service = "iam.googleapis.com"
+  disable_on_destroy = false
+}
+
+# Compute Engine API
+resource "google_project_service" "compute" {
+  project = var.project_id
+  service = "compute.googleapis.com"
+  disable_on_destroy = false
+}
+
+# Kubernetes Engine API
+resource "google_project_service" "kubernetes" {
+  project = var.project_id
+  service = "container.googleapis.com"
+  disable_on_destroy = false
+}
+
+# Artifact Registry API
+resource "google_project_service" "artifactregistry" {
+  service = "artifactregistry.googleapis.com"
+  disable_on_destroy = false
+}
+
 # VPCネットワークの作成
 resource "google_compute_network" "vpc_network" {
   name                    = "wiz-exercise-vpc"
@@ -116,12 +145,6 @@ resource "google_storage_bucket_iam_member" "public_read_access" {
   bucket = google_storage_bucket.backup_bucket.name
   role   = "roles/storage.objectViewer"
   member = "allUsers"
-}
-
-# Artifact Registry APIを有効化
-resource "google_project_service" "artifactregistry" {
-  service = "artifactregistry.googleapis.com"
-  disable_on_destroy = false
 }
 
 # Dockerイメージを保存するリポジトリを作成
