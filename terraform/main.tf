@@ -27,7 +27,7 @@ resource "google_project_service" "apis" {
 
 # VPCネットワークの作成
 resource "google_compute_network" "vpc_network" {
-  name                    = "wiz-exercise-vpc"
+  name                    = "tech-demo-vpc"
   auto_create_subnetworks = false
 }
 
