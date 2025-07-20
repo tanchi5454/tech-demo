@@ -3,32 +3,25 @@ provider "google" {
   region  = "asia-northeast1"
 }
 
-# APIを有効化する
-
-# Identity and Access Management (IAM) API
-resource "google_project_service" "iam" {
-  project = var.project_id
-  service = "iam.googleapis.com"
-  disable_on_destroy = false
+# 有効化したいAPIのリストを定義
+locals {
+  enabled_apis = toset([
+    "iam.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+    "compute.googleapis.com",
+    "container.googleapis.com",
+    "storage.googleapis.com",
+    "artifactregistry.googleapis.com"
+  ])
 }
 
-# Compute Engine API
-resource "google_project_service" "compute" {
-  project = var.project_id
-  service = "compute.googleapis.com"
-  disable_on_destroy = false
-}
+# for_each を使ってAPIをまとめて有効化
+resource "google_project_service" "apis" {
+  for_each = local.enabled_apis
 
-# Kubernetes Engine API
-resource "google_project_service" "kubernetes" {
-  project = var.project_id
-  service = "container.googleapis.com"
-  disable_on_destroy = false
-}
+  service = each.key
 
-# Artifact Registry API
-resource "google_project_service" "artifactregistry" {
-  service = "artifactregistry.googleapis.com"
+  # terraform destroy 実行時にAPIを無効化しないように設定
   disable_on_destroy = false
 }
 
