@@ -11,7 +11,6 @@ resource "google_container_cluster" "primary" {
 
   # デフォルトノードプールを無効化 
   remove_default_node_pool = true
-  initial_node_count       = 1
 
 
   // プライベートクラスタ設定
