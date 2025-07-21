@@ -7,7 +7,7 @@ resource "google_secret_manager_secret" "mongodb_user" {
   project   = var.project_id
   secret_id = "mongodb-user"
   replication {
-    automatic = true
+   # automatic = false
   }
 }
 resource "google_secret_manager_secret_version" "mongodb_user_version" {
@@ -20,7 +20,7 @@ resource "google_secret_manager_secret" "mongodb_password" {
   project   = var.project_id
   secret_id = "mongodb-password"
   replication {
-    automatic = true
+   # automatic = true
   }
 }
 resource "google_secret_manager_secret_version" "mongodb_password_version" {
@@ -33,7 +33,7 @@ resource "google_secret_manager_secret" "jwt_secret_key" {
   project   = var.project_id
   secret_id = "jwt-secret-key"
   replication {
-    automatic = true
+   # automatic = true
   }
 }
 resource "google_secret_manager_secret_version" "jwt_secret_key_version" {
