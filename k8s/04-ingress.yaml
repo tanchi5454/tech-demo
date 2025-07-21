@@ -1,11 +1,19 @@
+# Serviceを外部に公開するためのIngress
+# GKEで適用すると、自動的にGoogle CloudのHTTP(S)ロードバランサが作成されます
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: todo-app-ingress
+  name: wiz-app-ingress
 spec:
-  ingressClassName: gce 
-  defaultBackend:
-    service:
-      name: todo-app-service
-      port:
-        number: 80
+  # デフォルトのIngressコントローラを使用
+  ingressClassName: gce
+  rules:
+  - http:
+      paths:
+      - path: /* # すべてのパスへのリクエストを対象
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: wiz-app-service # 03-service.ymlで作成したService名
+            port:
+              number: 80 # Serviceが公開しているポート番号

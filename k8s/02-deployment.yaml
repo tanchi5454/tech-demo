@@ -1,29 +1,34 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: todo-app-deployment
-  labels:
-    app: todo
+  name: wiz-app-deployment
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app: todo
+      app: wiz-app
   template:
     metadata:
       labels:
-        app: todo
+        app: wiz-app
     spec:
-      serviceAccountName: wiz-app-sa # RBACで作成したサービスアカウント
+      # ★★★ 要件: クラスタ全体の管理者ロールを付与 ★★★
+      serviceAccountName: cluster-admin-sa # 01-rbac.yamlで作成するServiceAccount
       containers:
-      - name: todo-app
-        # サンプルのToDoリストアプリケーションイメージ
-        # 演習の要件により、`wizexercise.txt`を含む独自のイメージをビルドしてレジストリにプッシュし、
-        # このイメージ名を置き換えてください。
-        # 例: gcr.io/your-project-id/wiz-todo-app:v1
-        image: "agustinlare/nodejs-todo-app-mongo"
+      - name: wiz-app
+        # ★★★ CI/CDパイプラインでビルドしたイメージを指定 ★★★
+        image: gcr.io/your-gcp-project-id/wiz-app:latest
         ports:
         - containerPort: 8080
-        envFrom:
-        - secretRef:
-            name: mongo-secret # Secretから環境変数を読み込む
+        env:
+        # ★★★ Secretから環境変数を設定 ★★★
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: wiz-app-secrets # 00-secret.yamlで作成したSecret名
+              key: MONGODB_URI
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: wiz-app-secrets
+              key: SECRET_KEY

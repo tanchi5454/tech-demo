@@ -1,18 +1,21 @@
+# アプリケーションにクラスタ全体の管理者権限を付与するための設定
+# ServiceAccount: アプリケーションが使用するID
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: wiz-app-sa
+  name: cluster-admin-sa
 
 ---
+# ClusterRoleBinding: ServiceAccountを既存のcluster-adminロールに紐付け
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: wiz-app-admin-binding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin # 権限が強力すぎるので、本番環境では要注意
+  name: wiz-app-cluster-admin-binding
 subjects:
 - kind: ServiceAccount
-  name: wiz-app-sa
-  namespace: default
+  name: cluster-admin-sa
+  namespace: default # ServiceAccountが存在するnamespaceを指定
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin # Kubernetesに組み込まれている管理者ロール
+  apiGroup: rbac.authorization.k8s.io

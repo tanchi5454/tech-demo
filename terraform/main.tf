@@ -1,128 +1,104 @@
-provider "google" {
-  project = var.project_id
-  region  = "asia-northeast1"
+# main.tf
+
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = ">= 4.50.0"
+    }
+  }
+
+  // Terraformの状態を管理するGCSバケットを指定
+  // このバケットは事前に手動で作成
+  backend "gcs" {
+    bucket = "techdemo-01-terraform-state" #一意の名前に変更
+    prefix = "terraform/state"
+  }
 }
 
-# VPCネットワークの作成
-resource "google_compute_network" "vpc_network" {
-  name                    = "tech-demo-vpc"
+provider "google" {
+  project = var.project_id
+  region  = var.region
+  zone    = var.zone
+}
+
+// カスタムVPCの作成
+resource "google_compute_network" "wiz_vpc" {
+  name                    = "wiz-vpc"
   auto_create_subnetworks = false
 }
 
-# GKEクラスタ用のプライベートサブネット
+// GKEクラスタ用のプライベートサブネット
 resource "google_compute_subnetwork" "private_subnet" {
-  name          = "gke-private-subnet"
+  name          = "private-subnet"
   ip_cidr_range = "10.0.1.0/24"
-  network       = google_compute_network.vpc_network.id
   region        = var.region
-  private_ip_google_access = true # プライベートノードがGoogle APIにアクセスできるようにする
-    # GKEが使用するPodとServiceのIPアドレス範囲を定義する
-  secondary_ip_range {
-    range_name    = "gke-pod-range"
-    ip_cidr_range = "10.10.0.0/16" # 例: Pod用のIP範囲
-  }
-  secondary_ip_range {
-    range_name    = "gke-service-range"
-    ip_cidr_range = "10.20.0.0/20" # 例: Service用のIP範囲
-  }
+  network       = google_compute_network.wiz_vpc.id
 }
 
-# MongoDB VM用のパブリックサブネット
+// MongoDB VM用のパブリックサブネット
 resource "google_compute_subnetwork" "public_subnet" {
-  name          = "mongodb-public-subnet"
+  name          = "public-subnet"
   ip_cidr_range = "10.0.2.0/24"
-  network       = google_compute_network.vpc_network.id
   region        = var.region
+  network       = google_compute_network.wiz_vpc.id
 }
 
-# プライベートサブネットからインターネットへのアウトバウンド通信を許可するCloud NAT
+// Cloud NATのルーター（プライベートサブネットからのアウトバウンド通信用）
 resource "google_compute_router" "router" {
-  name    = "gke-nat-router"
-  network = google_compute_network.vpc_network.id
+  name    = "wiz-nat-router"
+  network = google_compute_network.wiz_vpc.id
   region  = var.region
 }
 
+// Cloud NATゲートウェイの設定
 resource "google_compute_router_nat" "nat" {
-  name                               = "gke-cloud-nat"
+  name                               = "wiz-nat-gateway"
   router                             = google_compute_router.router.name
   region                             = var.region
   source_subnetwork_ip_ranges_to_nat = "LIST_OF_SUBNETWORKS"
-  subnetwork {
-    name                    = google_compute_subnetwork.private_subnet.id
-    source_ip_ranges_to_nat = ["ALL_IP_RANGES"]
-  }
-   nat_ip_allocate_option = "AUTO_ONLY"
   log_config {
     enable = true
     filter = "ERRORS_ONLY"
   }
+  subnetwork {
+    name                    = google_compute_subnetwork.private_subnet.id
+    source_ip_ranges_to_nat = ["ALL_IP_RANGES"]
+  }
 }
 
-# --- ファイアウォールルール ---
+// ファイアウォールルール
+resource "google_compute_firewall" "allow_internal" {
+  name    = "allow-internal"
+  network = google_compute_network.wiz_vpc.name
+  allow {
+    protocol = "all"
+  }
+  source_ranges = ["10.0.1.0/24", "10.0.2.0/24"]
+}
 
-# 要件: SSHはパブリックインターネットに公開する [cite: 53]
 resource "google_compute_firewall" "allow_ssh" {
-  name    = "allow-ssh-public"
-  network = google_compute_network.vpc_network.id
+  name    = "allow-ssh"
+  network = google_compute_network.wiz_vpc.name
   allow {
     protocol = "tcp"
     ports    = ["22"]
   }
-  source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["mongodb-server"]
+  source_ranges = ["0.0.0.0/0"] // 要件: インターネットからのSSHを許可
 }
 
-# 要件: (MongoDBへの)アクセスはKubernetesネットワークからのみに制限する [cite: 55]
-resource "google_compute_firewall" "allow_mongo_from_k8s" {
-  name    = "allow-mongo-from-k8s"
-  network = google_compute_network.vpc_network.id
-  allow {
-    protocol = "tcp"
-    ports    = ["27017"]
-  }
-  source_tags = ["gke-node"]
-  target_tags = ["mongodb-server"]
-}
-
-# GKEのコントロールプレーンからノードへのアクセスを許可
-resource "google_compute_firewall" "allow_gke_control_plane" {
-  name    = "allow-gke-control-plane"
-  network = google_compute_network.vpc_network.id
-  allow {
-    protocol = "tcp"
-    ports    = ["443", "10250"]
-  }
-  # GKEクラスタのコントロールプレーンのCIDRブロックを自動で取得
-  source_ranges = [google_container_cluster.primary.private_cluster_config[0].master_ipv4_cidr_block]
-  target_tags   = ["gke-node"]
-}
-
-# --- Cloud Storage ---
-
-# 要件: オブジェクトストレージはパブリック読み取りとパブリックリストを許可する [cite: 57]
-# 要件: データベースは毎日クラウドオブジェクトストレージにバックアップされる [cite: 56]
-resource "google_storage_bucket" "backup_bucket" {
-  name          = var.storage_bucket_name
-  location      = "ASIA-NORTHEAST1"
-  force_destroy = true # 演習用にバケットの削除を容易にする
+// DBバックアップ用のGCSバケット
+resource "google_storage_bucket" "db_backups" {
+  name          = "${var.project_id}-db-backups"
+  location      = var.region
+  force_destroy = true // デモ環境のクリーンアップを容易にするため
 
   uniform_bucket_level_access = true
 }
 
-# allUsersに読み取り権限を付与
-resource "google_storage_bucket_iam_member" "public_read_access" {
-  bucket = google_storage_bucket.backup_bucket.name
+// バケットをパブリックに読み取り可能にするIAM設定
+resource "google_storage_bucket_iam_member" "public_reader" {
+  bucket = google_storage_bucket.db_backups.name
   role   = "roles/storage.objectViewer"
   member = "allUsers"
-}
-
-# Dockerイメージを保存するリポジトリを作成
-resource "google_artifact_registry_repository" "my_app_repo" {
-  # APIが有効になった後に作成されるように依存関係を設定
-  depends_on = [google_project_service.apis]
-
-  location      = "asia-northeast1" # リージョンはご自身の環境に合わせてください
-  repository_id = "tech-exer-repo" # リポジトリの名前
-  description   = "Docker repository for the Wiz tech exercise"
-  format        = "DOCKER" # 保存するフォーマットを指定
 }

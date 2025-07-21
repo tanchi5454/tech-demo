@@ -1,12 +1,14 @@
+# Deploymentをクラスタ内で公開するためのService
 apiVersion: v1
 kind: Service
 metadata:
-  name: todo-app-service
+  name: wiz-app-service
 spec:
+  # type: ClusterIPがデフォルト。クラスタ内部からのみアクセス可能なIPを割り当てる
+  type: ClusterIP
   selector:
-    app: todo
+    app: wiz-app # このラベルを持つPodにトラフィックを転送する
   ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 8080
-  type: NodePort # Ingress Controllerがトラフィックを受け取れるようにNodePortまたはClusterIPを使用
+  - protocol: TCP
+    port: 80 # Serviceが公開するポート
+    targetPort: 8080 # Pod内のコンテナがリッスンしているポート

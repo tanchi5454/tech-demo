@@ -1,12 +1,14 @@
+# variables.tf
+
 variable "project_id" {
+  description = "The Google Cloud project ID to deploy resources into."
   type        = string
-  description = "The GCP project ID to deploy to."
 }
 
 variable "region" {
   description = "The GCP region to deploy resources into."
   type        = string
-  default     = "asia-northeast1"
+  default     = "asia-northeast1" // 東京リージョン
 }
 
 variable "zone" {
@@ -15,20 +17,14 @@ variable "zone" {
   default     = "asia-northeast1-a"
 }
 
-variable "gke_cluster_name" {
-  description = "The name for the GKE cluster."
-  type        = string
-  default     = "wiz-exercise-cluster"
+variable "gke_num_nodes" {
+  description = "The number of nodes in the GKE cluster."
+  type        = number
+  default     = 1
 }
 
-variable "mongo_vm_name" {
-  description = "The name for the MongoDB VM."
+variable "outdated_linux_image" {
+  description = "An outdated Linux image for the MongoDB VM (Debian 10)."
   type        = string
-  default     = "mongodb-server"
-}
-
-variable "storage_bucket_name" {
-  description = "The name for the GCS backup bucket. Must be globally unique."
-  type        = string
-  default     = "tech-exer" # 必ず一意な名前に変更してください
+  default     = "debian-cloud/debian-11"
 }

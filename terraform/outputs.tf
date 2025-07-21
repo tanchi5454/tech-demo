@@ -1,24 +1,27 @@
-output "mongodb_vm_public_ip" {
-  description = "Public IP address of the MongoDB VM."
-  value       = google_compute_instance.mongodb_server.network_interface[0].access_config[0].nat_ip
-}
-
-output "storage_bucket_name" {
-  description = "Name of the GCS bucket for backups."
-  value       = google_storage_bucket.backup_bucket.name
-}
+# outputs.tf
 
 output "gke_cluster_name" {
-  description = "GKE cluster name."
+  description = "The name of the GKE cluster."
   value       = google_container_cluster.primary.name
 }
 
-output "get_gke_credentials_command" {
-  description = "Command to get kubectl credentials for the GKE cluster."
-  value = "gcloud container clusters get-credentials ${google_container_cluster.primary.name} --zone ${var.zone} --project ${var.project_id}"
+output "gke_cluster_endpoint" {
+  description = "The endpoint of the GKE cluster."
+  value       = google_container_cluster.primary.endpoint
+  sensitive   = true
 }
 
-output "mongodb_internal_ip" {
-  description = "Internal IP of the MongoDB VM for the application to connect to."
-  value = google_compute_instance.mongodb_server.network_interface[0].network_ip
+output "mongodb_vm_external_ip" {
+  description = "The external IP address of the MongoDB VM."
+  value       = google_compute_instance.mongodb_vm.network_interface[0].access_config[0].nat_ip
+}
+
+output "mongodb_vm_internal_ip" {
+  description = "The internal IP address of the MongoDB VM."
+  value       = google_compute_instance.mongodb_vm.network_interface[0].network_ip
+}
+
+output "db_backup_bucket_name" {
+  description = "The name of the GCS bucket for database backups."
+  value       = google_storage_bucket.db_backups.name
 }
