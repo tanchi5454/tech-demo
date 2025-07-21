@@ -3,15 +3,6 @@ provider "google" {
   region  = "asia-northeast1"
 }
 
-# for_each を使ってAPIをまとめて有効化
-resource "google_project_service" "apis" {
-
-  service = each.key
-
-  # terraform destroy 実行時にAPIを無効化しないように設定
-  disable_on_destroy = false
-}
-
 # VPCネットワークの作成
 resource "google_compute_network" "vpc_network" {
   name                    = "tech-demo-vpc"
