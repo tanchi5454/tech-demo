@@ -5,7 +5,6 @@ provider "google" {
 
 # for_each を使ってAPIをまとめて有効化
 resource "google_project_service" "apis" {
-  for_each = local.enabled_apis
 
   service = each.key
 
