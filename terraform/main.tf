@@ -3,18 +3,6 @@ provider "google" {
   region  = "asia-northeast1"
 }
 
-# 有効化したいAPIのリストを定義
-locals {
-  enabled_apis = toset([
-    "iam.googleapis.com",
-    "cloudresourcemanager.googleapis.com",
-    "compute.googleapis.com",
-    "container.googleapis.com",
-    "storage.googleapis.com",
-    "artifactregistry.googleapis.com"
-  ])
-}
-
 # for_each を使ってAPIをまとめて有効化
 resource "google_project_service" "apis" {
   for_each = local.enabled_apis
@@ -32,7 +20,6 @@ resource "google_compute_network" "vpc_network" {
 }
 
 # GKEクラスタ用のプライベートサブネット
-# 要件: Kubernetesクラスタはプライベートサブネットにデプロイする [cite: 63]
 resource "google_compute_subnetwork" "private_subnet" {
   name          = "gke-private-subnet"
   ip_cidr_range = "10.0.1.0/24"
@@ -51,7 +38,6 @@ resource "google_compute_subnetwork" "private_subnet" {
 }
 
 # MongoDB VM用のパブリックサブネット
-# 図ではPublic SubnetにVMが配置されている [cite: 27]
 resource "google_compute_subnetwork" "public_subnet" {
   name          = "mongodb-public-subnet"
   ip_cidr_range = "10.0.2.0/24"
