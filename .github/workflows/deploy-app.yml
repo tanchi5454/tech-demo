@@ -83,7 +83,7 @@ jobs:
     - name: Deploy to GKE
       run: |
         # Deploymentのイメージを新しいものに差し替える
-        sed -i 's|image: gcr.io/techdemo-01/wiz-app:latest|image: ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}|g' k8s/02-deployment.yaml
+        sed -i 's|image: wiz-repo/techdemo-01/wiz-app:latest|image: ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}|g' k8s/02-deployment.yaml
         
         # マニフェストを適用
         kubectl apply -f k8s/
