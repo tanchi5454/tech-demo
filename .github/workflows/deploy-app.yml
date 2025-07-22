@@ -1,39 +1,90 @@
-name: 'Deploy App to GKE'
+name: Deploy Application to GKE
 
+# ワークフローのトリガー設定
 on:
+  # 1. mainブランチの app/ または k8s/ ディレクトリにプッシュされたときに自動実行
   push:
     branches:
       - main
     paths:
       - 'app/**'
       - 'k8s/**'
+  
+  # 2. GitHubのActionsタブから手動で実行できるようにする
+  workflow_dispatch:
 
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GKE_CLUSTER: wiz-gke-cluster      # Terraformで作成したクラスタ名
+  GKE_REGION: asia-northeast1      # Terraformで指定したリージョン
+  GKE_ZONE: asia-northeast1-a      # Terraformで指定したゾーン
+  REPO_NAME: gcr.io              # 作成したリポジトリ名
+  IMAGE_NAME: wiz-app
+  
 jobs:
   build-and-deploy:
+    name: Build and Deploy
     runs-on: ubuntu-latest
+
+    # GCPへの認証とアクセス許可の設定
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: Authenticate to Google Cloud
-        uses: 'google-github-actions/auth@v1'
-        with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+    # 1. Google Cloudへの認証
+    - id: 'auth'
+      uses: 'google-github-actions/auth@v1'
+      with:
+        workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      - name: Set up Cloud SDK
-        uses: 'google-github-actions/setup-gcloud@v1'
+    # 2. Dockerのビルド環境を設定 (gcloud auth configure-docker)
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
 
-      - name: Configure Docker
-        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+    # 3. GKEクラスタの認証情報を取得 (kubectlが使えるようにする)
+    - name: Get GKE credentials
+      uses: google-github-actions/get-gke-credentials@v1
+      with:
+        cluster_name: ${{ env.GKE_CLUSTER }}
+        location: ${{ env.GKE_REGION }}
 
-      - name: Build and Push Docker Image
-        run: |
-          docker build -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-repo/my-app:${{ github.sha }} ./app
-          docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-repo/my-app:${{ github.sha }}
+    # 4. DockerイメージをビルドしてArtifact Registryにプッシュ
+    # ★★★ 修正: 正しいリポジトリパスを参照するように修正 ★★★
+    - name: Build and Push Docker image
+      run: |
+        gcloud auth configure-docker ${{ env.GKE_REGION }}-docker.pkg.dev
+        docker build -t ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} ./app
+        docker push ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      - name: Deploy to GKE
-        run: |
-          gcloud container clusters get-credentials my-gke-cluster --zone us-central1-a
-          # Deploymentのイメージを更新
-          sed -i "s|IMAGE_PLACEHOLDER|us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/my-repo/my-app:${{ github.sha }}|g" k8s/deployment.yml
-          kubectl apply -f k8s/
+    # 5. Secret Managerから機密情報を取得し、Kubernetes Secretを作成
+    - name: Create/Update Kubernetes Secrets
+      run: |
+        # Secret Managerから値を取得
+        MONGO_USER=$(gcloud secrets versions access latest --secret="mongodb-user")
+        MONGO_PASS=$(gcloud secrets versions access latest --secret="mongodb-password")
+        JWT_KEY=$(gcloud secrets versions access latest --secret="jwt-secret-key")
+        
+        MONGO_IP=$(gcloud compute instances describe mongodb-vm --zone ${{ env.GKE_ZONE }} --format='get(networkInterfaces[0].networkIP)')
+
+        # 接続文字列を構築
+        MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_IP}:27017/todo_db?authSource=admin"
+
+        # Kubernetes Secretを作成（存在すれば更新）
+        kubectl create secret generic wiz-app-secrets \
+          --from-literal=MONGODB_URI="$MONGO_URI" \
+          --from-literal=SECRET_KEY="$JWT_KEY" \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+    # 6. Kubernetesマニフェストをデプロイ
+    - name: Deploy to GKE
+      run: |
+        # Deploymentのイメージを新しいものに差し替える
+        sed -i 's|image: gcr.io/your-gcp-project-id/wiz-app:latest|image: ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}|g' k8s/02-deployment.yaml
+        
+        # マニフェストを適用
+        kubectl apply -f k8s/
