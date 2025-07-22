@@ -17,7 +17,7 @@ spec:
       containers:
       - name: wiz-app
         # ★★★ CI/CDパイプラインでビルドしたイメージを指定 ★★★
-        image: gcr.io/your-gcp-project-id/wiz-app:latest
+        image: wiz-repo/techdemo-01/wiz-app:latest
         ports:
         - containerPort: 8080
         env:
