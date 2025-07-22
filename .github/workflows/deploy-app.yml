@@ -54,7 +54,6 @@ jobs:
         location: ${{ env.GKE_REGION }}
 
     # 4. DockerイメージをビルドしてArtifact Registryにプッシュ
-    # ★★★ 修正: 正しいリポジトリパスを参照するように修正 ★★★
     - name: Build and Push Docker image
       run: |
         gcloud auth configure-docker ${{ env.GKE_REGION }}-docker.pkg.dev
