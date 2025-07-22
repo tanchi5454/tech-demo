@@ -18,8 +18,8 @@ env:
   GKE_CLUSTER: wiz-gke-cluster      # Terraformで作成したクラスタ名
   GKE_REGION: asia-northeast1      # Terraformで指定したリージョン
   GKE_ZONE: asia-northeast1-a      # Terraformで指定したゾーン
-  REPO_NAME: gcr.io              # 作成したリポジトリ名
-  IMAGE_NAME: wiz-app
+  REPO_NAME: gcr.io              # Artifact Repogitory名
+  IMAGE_NAME: wiz-app 
   
 jobs:
   build-and-deploy:
