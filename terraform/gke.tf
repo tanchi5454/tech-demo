@@ -11,7 +11,7 @@ resource "google_container_cluster" "primary" {
 
   # デフォルトノードプールを無効化 
   remove_default_node_pool = true
-
+  # initial_node_count              = 1
 
   // プライベートクラスタ設定
   private_cluster_config {
@@ -21,7 +21,7 @@ resource "google_container_cluster" "primary" {
   }
   
   // コントロールプレーンがノードと通信できるように許可
-  master_authorized_networks_config {}
+  # master_authorized_networks_config {}
 
   ip_allocation_policy {
     cluster_secondary_range_name  = "pods"
