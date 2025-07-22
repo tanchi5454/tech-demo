@@ -21,7 +21,12 @@ resource "google_container_cluster" "primary" {
   }
   
   // コントロールプレーンがノードと通信できるように許可
-  # master_authorized_networks_config {}
+  master_authorized_networks_config {
+    cidr_blocks {
+      cidr_block = "0.0.0.0/0"
+      display_name = "Allow all for exercise"
+    }
+  }
 
   ip_allocation_policy {
     cluster_secondary_range_name  = "pods"
