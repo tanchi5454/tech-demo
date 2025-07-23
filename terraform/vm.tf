@@ -25,7 +25,7 @@ resource "google_secret_manager_secret" "mongodb_password" {
 }
 resource "google_secret_manager_secret_version" "mongodb_password_version" {
   secret      = google_secret_manager_secret.mongodb_password.id
-  secret_data = "Shtano+07012025" # ★★★ 必ず強力なパスワードに変更 ★★★
+  secret_data = "wizpassword" # ★★★ 必ず強力なパスワードに変更 ★★★
 }
 
 #  JWTトークン用のSecret Key
