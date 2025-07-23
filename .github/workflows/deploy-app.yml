@@ -67,8 +67,7 @@ jobs:
         MONGO_USER=$(gcloud secrets versions access latest --secret="mongodb-user")
         MONGO_PASS=$(gcloud secrets versions access latest --secret="mongodb-password")
         JWT_KEY=$(gcloud secrets versions access latest --secret="jwt-secret-key")
-        
-        MONGO_IP=$(gcloud compute instances describe mongodb-vm --zone ${{ env.GKE_ZONE }} --format='get(networkInterfaces[0].networkIP)')
+        MONGO_IP=$(gcloud compute instances describe mongodb-vm ...)
 
         # 接続文字列を構築
         MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_IP}:27017/todo_db?authSource=admin"

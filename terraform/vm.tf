@@ -38,7 +38,7 @@ resource "google_secret_manager_secret" "jwt_secret_key" {
 }
 resource "google_secret_manager_secret_version" "jwt_secret_key_version" {
   secret      = google_secret_manager_secret.jwt_secret_key.id
-  secret_data = "070125Shtano!" # ★★★ 必ずランダムな文字列に変更 ★★★
+  secret_data = "secret123"
 }
 
 # --- VMとサービスアカウントの設定 ---
@@ -56,7 +56,7 @@ resource "google_project_iam_member" "vm_iam_compute" {
   member  = "serviceAccount:${google_service_account.mongodb_vm_sa.email}"
 }
 
-# サービスアカウントにSecret Managerへのアクセス権を付与 
+# サービスアカウントにSecret Managerへのアクセス権を付与
 resource "google_project_iam_member" "vm_iam_secret_accessor" {
   project = var.project_id
   role    = "roles/secretmanager.secretAccessor"
