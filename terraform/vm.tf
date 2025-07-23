@@ -110,6 +110,15 @@ resource "google_compute_instance" "mongodb_vm" {
     systemctl restart mongod
     systemctl enable mongod
 
+    # gcloud CLI のインストール（追加）
+    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+    apt-get update && apt-get install -y google-cloud-sdk
+    
+    # Secret Managerから認証情報を取得
+    MONGO_USER=$(gcloud secrets versions access latest --secret="mongodb-user" --project="${var.project_id}")
+    MONGO_PASS=$(gcloud secrets versions access latest --secret="mongodb-password" --project="${var.project_id}")
+
     # Secret Managerから認証情報を取得
     MONGO_USER=$(gcloud secrets versions access latest --secret="mongodb-user" --project="${var.project_id}")
     MONGO_PASS=$(gcloud secrets versions access latest --secret="mongodb-password" --project="${var.project_id}")
