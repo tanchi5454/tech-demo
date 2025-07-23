@@ -1,31 +1,47 @@
+# WebアプリケーションをデプロイするためのDeploymentリソースを定義します。
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  # Deploymentの名前
   name: wiz-app-deployment
 spec:
+  # Podのレプリカ（インスタンス）数を2に設定
   replicas: 2
+  # このDeploymentが管理するPodを特定するためのラベルセレクター
   selector:
     matchLabels:
       app: wiz-app
+  # Podのテンプレート定義
   template:
     metadata:
+      # 作成されるPodに 'app: wiz-app' というラベルを付与します。
+      # これはServiceがトラフィックを転送する対象を見つけるために使われます。
       labels:
         app: wiz-app
     spec:
-      # ★★★ 要件: クラスタ全体の管理者ロールを付与 ★★★
-      serviceAccountName: cluster-admin-sa # 01-rbac.yamlで作成するServiceAccount
+      # ★★★ 要件: クラスタ全体の管理者権限を付与 ★★★
+      # 01-rbac.yamlで作成するServiceAccountを指定します。
+      # これにより、このPodはクラスタ管理者権限で動作します。
+      serviceAccountName: cluster-admin-sa
       containers:
       - name: wiz-app
-        # ★★★ CI/CDパイプラインでビルドしたイメージを指定 ★★★
-        image: __IMAGE_PLACEHOLDER__  
+        # ★★★ CI/CDパイプラインで置換されるイメージのプレースホルダー ★★★
+        # GitHub Actionsのワークフローが、ビルドしたDockerイメージの
+        # 正式なパスにこの値を動的に書き換えます。
+        image: __IMAGE_PLACEHOLDER__
+        # アプリケーションがコンテナ内でリッスンするポート
         ports:
         - containerPort: 8080
-        env:
         # ★★★ Secretから環境変数を設定 ★★★
+        # アプリケーションが必要とする機密情報を環境変数としてコンテナに渡します。
+        env:
         - name: MONGODB_URI
           valueFrom:
             secretKeyRef:
-              name: wiz-app-secrets # 00-secret.yamlで作成したSecret名
+              # 00-secret.yamlで定義し、パイプラインで値を設定したSecretの名前
+              name: wiz-app-secrets
+              # Secret内のキー
               key: MONGODB_URI
         - name: SECRET_KEY
           valueFrom:
