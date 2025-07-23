@@ -75,9 +75,9 @@ jobs:
 
         echo "::group::Retrieving secrets from Secret Manager"
         # Secret Managerから値を取得し、末尾の改行を削除
-        MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-user')")
-        MONGO_PASS=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-password')")
-        JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='jwt-secret-key')")
+        MONGO_USER=$(gcloud secrets versions access latest --secret='mongodb-user' | tr -d '\n')
+        MONGO_PASS=$(gcloud secrets versions access latest --secret='mongodb-password' | tr -d '\n')
+        JWT_KEY=$(gcloud secrets versions access latest --secret='jwt-secret-key' | tr -d '\n')
         echo "::endgroup::"
         
         echo "::group::Retrieving MongoDB VM IP Address"
@@ -86,9 +86,15 @@ jobs:
         echo "MongoDB VM Internal IP: $MONGO_IP"
         echo "::endgroup::"
 
+        # Validate variables
+        if [[ -z "$MONGO_USER" || -z "$MONGO_PASS" || -z "$MONGO_IP" ]]; then
+        echo "::error::One or more MongoDB connection variables are empty!"
+        exit 1
+        fi
+
         # 接続文字列を構築
         MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_IP}:27017/todo_db?authSource=admin"
-        echo "Constructed MONGO_URI: $MONGO_URI" 
+        echo "Constructed MONGO_URI: $MONGO_URI"
         
         echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_IP}:27017/todo_db?authSource=admin"
 
