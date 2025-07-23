@@ -55,6 +55,12 @@ resource "google_project_iam_member" "vm_iam_compute" {
   role    = "roles/compute.admin" // VM作成などが可能な強い権限
   member  = "serviceAccount:${google_service_account.mongodb_vm_sa.email}"
 }
+# サービスアカウントにLogging Writer の権限を付与
+resource "google_project_iam_member" "logging_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  =  "serviceAccount:${google_service_account.mongodb_vm_sa.email}"
+}
 
 # サービスアカウントにSecret Managerへのアクセス権を付与
 resource "google_project_iam_member" "vm_iam_secret_accessor" {
@@ -90,7 +96,7 @@ resource "google_compute_instance" "mongodb_vm" {
   # 起動スクリプトでSecret Managerから認証情報を取得
   metadata = {
     # file() 関数で外部スクリプトファイルを指定
-    startup-script = "startup_script.sh"
+    startup-script = "./startup_script.sh"
   }
 
   tags = ["mongodb-server"]
