@@ -82,7 +82,7 @@ jobs:
         
         echo "::group::Retrieving MongoDB VM IP Address"
         # MongoDB VMの内部IPアドレスを取得
-        MONGO_IP=$(gcloud compute instances describe mongodb-vm --zone ${{ env.GKE_ZONE }} --format='get(networkInterfaces[0].networkIP)')
+        MONGO_IP=$(gcloud compute instances describe mongodb-vm --zone asia-northeast1-a --format='get(networkInterfaces[0].networkIP)')
         echo "MongoDB VM Internal IP: $MONGO_IP"
         echo "::endgroup::"
 
