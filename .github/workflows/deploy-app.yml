@@ -13,16 +13,14 @@ on:
   # 2. GitHubのActionsタブから手動で実行できるようにする
   workflow_dispatch:
 
-# ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-# ## 環境変数の設定
-# ## ここの値が、Terraformで作成したリソースと一致していることを確認してください
-# ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+# ワークフロー全体で使用する環境変数を定義します
+# ここの値が、Terraformで作成したリソースと一致していることを確認してください
 env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GKE_CLUSTER: wiz-gke-cluster      # Terraformで作成したクラスタ名
   GKE_REGION: asia-northeast1      # Terraformで指定したリージョン
   GKE_ZONE: asia-northeast1-a      # Terraformで指定したゾーン
-  REPO_NAME: wiz-repo              # ★★★ Terraformで作成したリポジトリ名 ★★★
+  REPO_NAME: wiz-repo              # Terraformで作成したArtifact Registryのリポジトリ名
   IMAGE_NAME: wiz-app
   
 jobs:
@@ -30,71 +28,63 @@ jobs:
     name: Build and Deploy
     runs-on: ubuntu-latest
 
-    # GCPへの認証とアクセス許可の設定
+    # Workload Identity連携のために、IDトークンへの書き込み権限を付与します
     permissions:
       contents: 'read'
       id-token: 'write'
 
     steps:
+    # 1. リポジトリのコードをチェックアウトします
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # 1. Google Cloudへの認証
+    # 2. Google Cloudへの認証を行います
     - id: 'auth'
       uses: 'google-github-actions/auth@v1'
       with:
         workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
         service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-    # 2. Dockerのビルド環境を設定 (gcloud auth configure-docker)
+    # 3. gcloud CLIをセットアップします
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
 
-    # 3. GKEクラスタの認証情報を取得 (kubectlが使えるようにする)
+    # 4. GKEクラスタの認証情報を取得し、kubectlが使えるようにします
     - name: Get GKE credentials
       uses: google-github-actions/get-gke-credentials@v1
       with:
         cluster_name: ${{ env.GKE_CLUSTER }}
         location: ${{ env.GKE_REGION }}
 
-    # 4. DockerイメージをビルドしてArtifact Registryにプッシュ
+    # 5. DockerイメージをビルドしてArtifact Registryにプッシュします
     - name: Build and Push Docker image
       run: |
+        # Artifact Registryへの認証を設定
         gcloud auth configure-docker ${{ env.GKE_REGION }}-docker.pkg.dev
+        # Dockerイメージをビルド
         docker build -t ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -f app/Dockerfile ./
+        # Dockerイメージをプッシュ
         docker push ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-    # 5. Secret Managerから機密情報を取得し、Kubernetes Secretを作成
+    # 6. Secret Managerから機密情報を取得し、Kubernetes Secretを作成します
     - name: Create/Update Kubernetes Secrets
       id: create-secrets
       run: |
+        # スクリプトが失敗した場合に即座に終了させる設定
         set -euo pipefail
 
         echo "::group::Retrieving secrets from Secret Manager"
-        MONGO_USER_RAW=$(gcloud secrets versions access latest --secret="mongodb-user")
-        MONGO_PASS_RAW=$(gcloud secrets versions access latest --secret="mongodb-password")
-        JWT_KEY_RAW=$(gcloud secrets versions access latest --secret="jwt-secret-key")
+        # Secret Managerから値を取得し、末尾の改行を削除
+        MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-user')")
+        MONGO_PASS=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-password')")
+        JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='jwt-secret-key')")
         echo "::endgroup::"
         
-        # ★★★ 改行文字を削除 ★★★
-        MONGO_USER=$(echo -n "$MONGO_USER_RAW")
-        MONGO_PASS=$(echo -n "$MONGO_PASS_RAW")
-        JWT_KEY=$(echo -n "$JWT_KEY_RAW")
-
-        if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
-          echo "Error: Failed to retrieve one or more secrets from Secret Manager."
-          exit 1
-        fi
-
         echo "::group::Retrieving MongoDB VM IP Address"
+        # MongoDB VMの内部IPアドレスを取得
         MONGO_IP=$(gcloud compute instances describe mongodb-vm --zone ${{ env.GKE_ZONE }} --format='get(networkInterfaces[0].networkIP)')
         echo "MongoDB VM Internal IP: $MONGO_IP"
         echo "::endgroup::"
-        
-        if [ -z "$MONGO_IP" ]; then
-          echo "Error: Failed to retrieve MongoDB VM IP address."
-          exit 1
-        fi
 
         # 接続文字列を構築
         MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_IP}:27017/todo_db?authSource=admin"
@@ -107,23 +97,33 @@ jobs:
           --from-literal=SECRET_KEY="$JWT_KEY" \
           --dry-run=client -o yaml | kubectl apply -f -
 
-    # 6. Kubernetesマニフェストをデプロイ
+    # 7. KubernetesマニフェストをGKEにデプロイします
     - name: Deploy to GKE
       run: |
-        # Deploymentのイメージを新しいものに差し替える
-        sed -i 's|image: asia-northeast1-docker.pkg.dev/wiz-repo/techdemo-01/wiz-app:latest|image: ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}|g' k8s/02-deployment.yaml
+        echo "--- Content of 02-deployment.yaml before replacement ---"
+        cat k8s/02-deployment.yaml
+
+        # Deploymentファイル内のプレースホルダーを、ビルドしたイメージの完全なパスに置換
+        FULL_IMAGE_PATH="${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+        sed -i "s|image: __IMAGE_PLACEHOLDER__|image: ${FULL_IMAGE_PATH}|g" k8s/02-deployment.yaml
         
-        # マニフェストを適用
+        echo "--- Content of 02-deployment.yaml after replacement ---"
+        cat k8s/02-deployment.yaml
+
+        echo "Applying Kubernetes manifests..."
         kubectl apply -f k8s/
 
-    # 7. wizexercise.txt の存在と内容を検証
+    # 8. 実行中のコンテナ内でwizexercise.txtの存在と内容を検証します
     - name: Verify wizexercise.txt in running container
       run: |
         echo "Waiting for pods to be ready..."
+        # PodがReady状態になるまで最大120秒待機
         kubectl wait --for=condition=ready pod -l app=wiz-app --timeout=120s
         
         echo "Getting pod name..."
+        # ラベルを使ってPodの名前を取得
         POD_NAME=$(kubectl get pods -l app=wiz-app -o jsonpath='{.items[0].metadata.name}')
         
         echo "Verifying content of wizexercise.txt in pod: $POD_NAME"
+        # Pod内でコマンドを実行し、ファイルの内容を出力
         kubectl exec $POD_NAME -- cat /app/wizexercise.txt
