@@ -17,7 +17,7 @@ spec:
       containers:
       - name: wiz-app
         # ★★★ CI/CDパイプラインでビルドしたイメージを指定 ★★★
-        image: asia-northeast1-docker.pkg.dev/wiz-repo/techdemo-01/wiz-app:latest
+        image: IMAGE_PLACEHOLDER
         ports:
         - containerPort: 8080
         env:
