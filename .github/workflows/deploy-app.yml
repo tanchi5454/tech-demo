@@ -13,13 +13,17 @@ on:
   # 2. GitHubのActionsタブから手動で実行できるようにする
   workflow_dispatch:
 
+# ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+# ## 環境変数の設定
+# ## ここの値が、Terraformで作成したリソースと一致していることを確認してください
+# ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GKE_CLUSTER: wiz-gke-cluster      # Terraformで作成したクラスタ名
   GKE_REGION: asia-northeast1      # Terraformで指定したリージョン
   GKE_ZONE: asia-northeast1-a      # Terraformで指定したゾーン
-  REPO_NAME: wiz-repo              # Artifact Repogitory名
-  IMAGE_NAME: wiz-app 
+  REPO_NAME: wiz-repo              # ★★★ Terraformで作成したリポジトリ名 ★★★
+  IMAGE_NAME: wiz-app
   
 jobs:
   build-and-deploy:
@@ -57,20 +61,45 @@ jobs:
     - name: Build and Push Docker image
       run: |
         gcloud auth configure-docker ${{ env.GKE_REGION }}-docker.pkg.dev
-        docker build -t ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} ./app
+        docker build -t ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -f app/Dockerfile ./
         docker push ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
     # 5. Secret Managerから機密情報を取得し、Kubernetes Secretを作成
     - name: Create/Update Kubernetes Secrets
+      id: create-secrets
       run: |
-        # Secret Managerから値を取得
-        MONGO_USER=$(gcloud secrets versions access latest --secret="mongodb-user")
-        MONGO_PASS=$(gcloud secrets versions access latest --secret="mongodb-password")
-        JWT_KEY=$(gcloud secrets versions access latest --secret="jwt-secret-key")
-        MONGO_IP=$(gcloud compute instances describe mongodb-vm ...)
+        set -euo pipefail
+
+        echo "::group::Retrieving secrets from Secret Manager"
+        MONGO_USER_RAW=$(gcloud secrets versions access latest --secret="mongodb-user")
+        MONGO_PASS_RAW=$(gcloud secrets versions access latest --secret="mongodb-password")
+        JWT_KEY_RAW=$(gcloud secrets versions access latest --secret="jwt-secret-key")
+        echo "::endgroup::"
+        
+        # ★★★ 改行文字を削除 ★★★
+        MONGO_USER=$(echo -n "$MONGO_USER_RAW")
+        MONGO_PASS=$(echo -n "$MONGO_PASS_RAW")
+        JWT_KEY=$(echo -n "$JWT_KEY_RAW")
+
+        if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
+          echo "Error: Failed to retrieve one or more secrets from Secret Manager."
+          exit 1
+        fi
+
+        echo "::group::Retrieving MongoDB VM IP Address"
+        MONGO_IP=$(gcloud compute instances describe mongodb-vm --zone ${{ env.GKE_ZONE }} --format='get(networkInterfaces[0].networkIP)')
+        echo "MongoDB VM Internal IP: $MONGO_IP"
+        echo "::endgroup::"
+        
+        if [ -z "$MONGO_IP" ]; then
+          echo "Error: Failed to retrieve MongoDB VM IP address."
+          exit 1
+        fi
 
         # 接続文字列を構築
         MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_IP}:27017/todo_db?authSource=admin"
+        
+        echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_IP}:27017/todo_db?authSource=admin"
 
         # Kubernetes Secretを作成（存在すれば更新）
         kubectl create secret generic wiz-app-secrets \
@@ -82,7 +111,19 @@ jobs:
     - name: Deploy to GKE
       run: |
         # Deploymentのイメージを新しいものに差し替える
-        sed -i 's|image: wiz-repo/techdemo-01/wiz-app:latest|image: ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}|g' k8s/02-deployment.yaml
+        sed -i 's|image: gcr.io/your-gcp-project-id/wiz-app:latest|image: ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}|g' k8s/02-deployment.yaml
         
         # マニフェストを適用
         kubectl apply -f k8s/
+
+    # 7. wizexercise.txt の存在と内容を検証
+    - name: Verify wizexercise.txt in running container
+      run: |
+        echo "Waiting for pods to be ready..."
+        kubectl wait --for=condition=ready pod -l app=wiz-app --timeout=120s
+        
+        echo "Getting pod name..."
+        POD_NAME=$(kubectl get pods -l app=wiz-app -o jsonpath='{.items[0].metadata.name}')
+        
+        echo "Verifying content of wizexercise.txt in pod: $POD_NAME"
+        kubectl exec $POD_NAME -- cat /app/wizexercise.txt
