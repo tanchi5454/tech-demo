@@ -88,6 +88,7 @@ jobs:
 
         # 接続文字列を構築
         MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_IP}:27017/todo_db?authSource=admin"
+        echo "Constructed MONGO_URI: $MONGO_URI" 
         
         echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_IP}:27017/todo_db?authSource=admin"
 
