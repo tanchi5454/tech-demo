@@ -115,6 +115,7 @@ jobs:
 
     # 8. 実行中のコンテナ内でwizexercise.txtの存在と内容を検証します
     - name: Verify wizexercise.txt in running container
+      id: verify-pod
       run: |
         echo "Waiting for pods to be ready..."
         # PodがReady状態になるまで最大120秒待機
@@ -127,3 +128,19 @@ jobs:
         echo "Verifying content of wizexercise.txt in pod: $POD_NAME"
         # Pod内でコマンドを実行し、ファイルの内容を出力
         kubectl exec $POD_NAME -- cat /app/wizexercise.txt
+
+    # ★★★ 追加: Podの準備が失敗した場合にデバッグ情報を出力するステップ ★★★
+    - name: Debug Pods on Failure
+      if: failure() && steps.verify-pod.conclusion == 'failure'
+      run: |
+        echo "::error::Pod verification failed. Collecting debug information..."
+        echo "--- Pods Status ---"
+        kubectl get pods -l app=wiz-app -o wide
+        
+        POD_NAMES=$(kubectl get pods -l app=wiz-app -o jsonpath='{.items[*].metadata.name}')
+        for POD_NAME in $POD_NAMES; do
+          echo "--- Describing pod: $POD_NAME ---"
+          kubectl describe pod $POD_NAME
+          echo "--- Logs from pod: $POD_NAME ---"
+          kubectl logs $POD_NAME --all-containers=true
+        done
