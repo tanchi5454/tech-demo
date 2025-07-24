@@ -69,11 +69,16 @@ resource "google_project_iam_member" "vm_iam_secret_accessor" {
   member  = "serviceAccount:${google_service_account.mongodb_vm_sa.email}"
 }
 
-// ★★★ 追加: GitHub Actionsが使用するサービスアカウントをTerraformで管理 ★★★
-resource "google_service_account" "iac-operations-sa" {
-  account_id   = "iac-operations-sa"
-  display_name = "Service Account for GitHub Actions"
+#  既に手動で作成したサービスアカウントをデータソースとして参照
+data "google_service_account" "github_actions_sa" {
+  account_id = "iac-operations-sa"
 }
+
+// ★★★ 追加: GitHub Actionsが使用するサービスアカウントをTerraformで管理 ★★★
+# resource "google_service_account" "iac-operations-sa" {
+#   account_id   = "iac-operations-sa"
+#   display_name = "Service Account for GitHub Actions"
+# }
 
 // ★★★ 追加: GitHub ActionsのサービスアカウントにSecret Managerへのアクセス権を付与 ★★★
 resource "google_project_iam_member" "github_actions_secret_accessor" {
