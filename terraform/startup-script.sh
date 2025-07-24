@@ -23,24 +23,23 @@ echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/debian bullseye/mong
 sudo apt-get update
 
 # MongoDB 7.0 のインストール
-sudo apt-get install -y mongodb-org
-# sudo apt-get install -y \
-#    mongodb-org=7.0.12 \
-#    mongodb-org-database=7.0.12 \
-#    mongodb-org-server=7.0.12 \
-#    mongodb-mongosh \
-#    mongodb-org-shell=7.0.12 \
-#    mongodb-org-mongos=7.0.12 \
-#    mongodb-org-tools=7.0.12 \
-#     mongodb-org-database-tools-extra=7.0.12
-# echo "mongodb-org hold" | sudo dpkg --set-selections
-# echo "mongodb-org-database hold" | sudo dpkg --set-selections
-# echo "mongodb-org-server hold" | sudo dpkg --set-selections
-# echo "mongodb-mongosh hold" | sudo dpkg --set-selections
-# echo "mongodb-org-mongos hold" | sudo dpkg --set-selections
-# echo "mongodb-org-cryptd hold" | sudo dpkg --set-selections
-# echo "mongodb-org-tools hold" | sudo dpkg --set-selections
-# echo "mongodb-org-database-tools-extra hold" | sudo dpkg --set-selections
+sudo apt-get install -y \
+   mongodb-org=7.0.12 \
+   mongodb-org-database=7.0.12 \
+   mongodb-org-server=7.0.12 \
+   mongodb-mongosh \
+   mongodb-org-shell=7.0.12 \
+   mongodb-org-mongos=7.0.12 \
+   mongodb-org-tools=7.0.12 \
+    mongodb-org-database-tools-extra=7.0.12
+echo "mongodb-org hold" | sudo dpkg --set-selections
+echo "mongodb-org-database hold" | sudo dpkg --set-selections
+echo "mongodb-org-server hold" | sudo dpkg --set-selections
+echo "mongodb-mongosh hold" | sudo dpkg --set-selections
+echo "mongodb-org-mongos hold" | sudo dpkg --set-selections
+echo "mongodb-org-cryptd hold" | sudo dpkg --set-selections
+echo "mongodb-org-tools hold" | sudo dpkg --set-selections
+echo "mongodb-org-database-tools-extra hold" | sudo dpkg --set-selections
 
 # IPバインディングを 0.0.0.0 に変更
 sed -i "s/bindIp: 127.0.0.1/bindIp: 0.0.0.0/" /etc/mongod.conf
