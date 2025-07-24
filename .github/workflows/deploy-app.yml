@@ -10,11 +10,11 @@ on:
       - 'app/**'
       - 'k8s/**'
   
-  # 2. GitHubのActionsタブから手動で実行できるようにする
+  # 2. GitHubのActionsタブから手動で実行可能にする
   workflow_dispatch:
 
-# ワークフロー全体で使用する環境変数を定義します
-# ここの値が、Terraformで作成したリソースと一致していることを確認してください
+# ワークフロー全体で使用する環境変数を定義
+# ここの値が、Terraformで作成したリソースと一致していることを確認
 env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GKE_CLUSTER: wiz-gke-cluster      # Terraformで作成したクラスタ名
@@ -22,23 +22,23 @@ env:
   GKE_ZONE: asia-northeast1-a      # Terraformで指定したゾーン
   REPO_NAME: wiz-repo              # Terraformで作成したArtifact Registryのリポジトリ名
   IMAGE_NAME: wiz-app
-  
+
 jobs:
   build-and-deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
 
-    # Workload Identity連携のために、IDトークンへの書き込み権限を付与します
+    # Workload Identity連携のために、IDトークンへの書き込み権限を付与
     permissions:
       contents: 'read'
       id-token: 'write'
 
     steps:
-    # 1. リポジトリのコードをチェックアウトします
+    # 1. リポジトリのコードをチェックアウト
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # 2. Google Cloudへの認証を行います
+    # 2. Google Cloudへの認証
     - id: 'auth'
       uses: 'google-github-actions/auth@v1'
       with:
@@ -49,14 +49,14 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
 
-    # 4. GKEクラスタの認証情報を取得し、kubectlが使えるようにします
+    # 4. GKEクラスタの認証情報を取得し、kubectlを使用可能にする
     - name: Get GKE credentials
       uses: google-github-actions/get-gke-credentials@v1
       with:
         cluster_name: ${{ env.GKE_CLUSTER }}
         location: ${{ env.GKE_REGION }}
 
-    # 5. DockerイメージをビルドしてArtifact Registryにプッシュします
+    # 5. DockerイメージをビルドしてArtifact Registryにプッシュ
     - name: Build and Push Docker image
       run: |
         # Artifact Registryへの認証を設定
@@ -66,7 +66,7 @@ jobs:
         # Dockerイメージをプッシュ
         docker push ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-    # 6. Secret Managerから機密情報を取得し、Kubernetes Secretを作成します
+    # 6. Secret Managerから機密情報を取得し、Kubernetes Secretを作成
     - name: Create/Update Kubernetes Secrets
       id: create-secrets
       run: |
@@ -93,10 +93,8 @@ jobs:
         fi
 
         # 接続文字列を構築
-        MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_IP}:27017"
-        echo "Constructed MONGO_URI: $MONGO_URI"
-        
-        echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_IP}:27017"
+        MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_IP}:27017/todo_db?authSource=admin"
+        echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_IP}:27017/todo_db?authSource=admin"
 
         # Kubernetes Secretを作成（存在すれば更新）
         kubectl create secret generic wiz-app-secrets \
@@ -104,7 +102,7 @@ jobs:
           --from-literal=SECRET_KEY="$JWT_KEY" \
           --dry-run=client -o yaml | kubectl apply -f -
 
-    # 7. KubernetesマニフェストをGKEにデプロイします
+    # 7. KubernetesマニフェストをGKEにデプロイ
     - name: Deploy to GKE
       run: |
         echo "--- Content of 02-deployment.yaml before replacement ---"
@@ -120,7 +118,7 @@ jobs:
         echo "Applying Kubernetes manifests..."
         kubectl apply -f k8s/
 
-    # 8. 実行中のコンテナ内でwizexercise.txtの存在と内容を検証します
+    # 8. 実行中のコンテナ内でwizexercise.txtの存在と内容を検証
     - name: Verify wizexercise.txt in running container
       id: verify-pod
       run: |
@@ -136,7 +134,7 @@ jobs:
         # Pod内でコマンドを実行し、ファイルの内容を出力
         kubectl exec $POD_NAME -- cat /app/wizexercise.txt
 
-    # ★★★ 追加: Podの準備が失敗した場合にデバッグ情報を出力するステップ ★★★
+    # 9 Podの準備が失敗した場合にデバッグ情報を出力
     - name: Debug Pods on Failure
       if: failure() && steps.verify-pod.conclusion == 'failure'
       run: |
