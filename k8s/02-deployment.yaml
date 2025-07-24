@@ -42,7 +42,7 @@ spec:
               # 00-secret.yamlで定義し、パイプラインで値を設定したSecretの名前
               name: wiz-app-secrets
               # Secret内のキー
-              key: MONGO_URI
+              key: MONGODB_URI
         - name: SECRET_KEY
           valueFrom:
             secretKeyRef:
