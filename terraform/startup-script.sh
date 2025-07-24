@@ -7,10 +7,8 @@ sed -i '/deb https:\/\/deb.debian.org\/debian bullseye-backports/s/^/#/' /etc/ap
 sed -i '/deb-src https:\/\/deb.debian.org\/debian bullseye-backports/s/^/#/' /etc/apt/sources.list
 apt-get update
 apt-get install -y gnupg curl
-curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
-   sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg \
-   --dearmor
-echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/mongodb-org-7.0.gpg
+echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/debian/dists/bullseye/mongodb-org/7.0/main" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
 apt-get update
 sudo apt-get install -y \
    mongodb-org=7.0.12 \
