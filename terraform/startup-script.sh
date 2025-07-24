@@ -3,7 +3,9 @@ set -e
 set -u
 
 # MongoDB 4.4 (古いバージョン) のインストール
-apt-get update || true
+sed -i '/deb https:\/\/deb.debian.org\/debian bullseye-backports/s/^/#/' /etc/apt/sources.list
+sed -i '/deb-src https:\/\/deb.debian.org\/debian bullseye-backports/s/^/#/' /etc/apt/sources.list
+apt-get update
 apt-get install -y gnupg wget
 wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | apt-key add -
 echo "deb http://repo.mongodb.org/apt/debian bullseye/mongodb-org/4.4 main" | tee /etc/apt/sources.list.d/mongodb-org-4.4.list
