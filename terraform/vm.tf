@@ -70,7 +70,7 @@ resource "google_project_iam_member" "vm_iam_secret_accessor" {
 }
 
 #  既に手動で作成したサービスアカウントをデータソースとして参照
-data "google_service_account" "github_actions_sa" {
+data "google_service_account" "iac-operations-sa" {
   account_id = "iac-operations-sa"
 }
 
