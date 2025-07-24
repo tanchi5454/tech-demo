@@ -70,7 +70,7 @@ resource "google_project_iam_member" "vm_iam_secret_accessor" {
 }
 
 #  既に手動で作成したサービスアカウントをデータソースとして参照
-data "google_service_account" "iac-operations-sa" {
+data "google_service_account" "github_actions_sa" {
   account_id = "iac-operations-sa"
 }
 
@@ -84,7 +84,7 @@ data "google_service_account" "iac-operations-sa" {
 resource "google_project_iam_member" "github_actions_secret_accessor" {
   project = var.project_id
   role    = "roles/secretmanager.secretAccessor"
-  member  = "serviceAccount:${google_service_account.iac-operations-sa.email}"
+  member  = "serviceAccount:${google_service_account.github_actions_sa.email}"
 }
 
 # MongoDB用のVMインスタンス
