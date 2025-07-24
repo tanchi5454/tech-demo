@@ -96,7 +96,7 @@ resource "google_compute_instance" "mongodb_vm" {
   # 起動スクリプトでSecret Managerから認証情報を取得
   metadata = {
     # file() 関数で外部スクリプトファイルを指定
-    startup-script = "startup-script.sh"
+    startup-script = file("startup_script.sh")
   }
 
   tags = ["mongodb-vm"]
