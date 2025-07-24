@@ -2,15 +2,33 @@
 set -e
 set -u
 
-# MongoDB 4.4 (古いバージョン) のインストール
+# MongoDB 7.0 (古いバージョン) のインストール
 sed -i '/deb https:\/\/deb.debian.org\/debian bullseye-backports/s/^/#/' /etc/apt/sources.list
 sed -i '/deb-src https:\/\/deb.debian.org\/debian bullseye-backports/s/^/#/' /etc/apt/sources.list
 apt-get update
-apt-get install -y gnupg wget
-wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | apt-key add -
-echo "deb http://repo.mongodb.org/apt/debian bullseye/mongodb-org/4.4 main" | tee /etc/apt/sources.list.d/mongodb-org-4.4.list
+apt-get install -y gnupg curl
+curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
+   sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg \
+   --dearmor
+echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
 apt-get update
-apt-get install -y mongodb-org=4.4.6 mongodb-org-server=4.4.6 mongodb-org-shell=4.4.6 mongodb-org-mongos=4.4.6 mongodb-org-tools=4.4.6
+sudo apt-get install -y \
+   mongodb-org=7.0.12 \
+   mongodb-org-database=7.0.12 \
+   mongodb-org-server=7.0.12 \
+   mongodb-mongosh \
+   mongodb-org-shell=7.0.12 \
+   mongodb-org-mongos=7.0.12 \
+   mongodb-org-tools=7.0.12 \
+   mongodb-org-database-tools-extra=7.0.12
+echo "mongodb-org hold" | sudo dpkg --set-selections
+echo "mongodb-org-database hold" | sudo dpkg --set-selections
+echo "mongodb-org-server hold" | sudo dpkg --set-selections
+echo "mongodb-mongosh hold" | sudo dpkg --set-selections
+echo "mongodb-org-mongos hold" | sudo dpkg --set-selections
+echo "mongodb-org-cryptd hold" | sudo dpkg --set-selections
+echo "mongodb-org-tools hold" | sudo dpkg --set-selections
+echo "mongodb-org-database-tools-extra hold" | sudo dpkg --set-selections
 
 # IPバインディングを 0.0.0.0 に変更
 sed -i "s/bindIp: 127.0.0.1/bindIp: 0.0.0.0/" /etc/mongod.conf
