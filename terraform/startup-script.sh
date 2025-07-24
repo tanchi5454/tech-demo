@@ -1,32 +1,46 @@
 # !/bin/bash
-set -e
-set -u
+set -euxo pipefail
 
-# MongoDB 7.0 (古いバージョン) のインストール
-sed -i '/deb https:\/\/deb.debian.org\/debian bullseye-backports/s/^/#/' /etc/apt/sources.list
-sed -i '/deb-src https:\/\/deb.debian.org\/debian bullseye-backports/s/^/#/' /etc/apt/sources.list
-apt-get update
-apt-get install -y gnupg curl
-curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/mongodb-org-7.0.gpg
-echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/debian/dists/bullseye/mongodb-org/7.0/main" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-apt-get update
-sudo apt-get install -y \
-   mongodb-org=7.0.12 \
-   mongodb-org-database=7.0.12 \
-   mongodb-org-server=7.0.12 \
-   mongodb-mongosh \
-   mongodb-org-shell=7.0.12 \
-   mongodb-org-mongos=7.0.12 \
-   mongodb-org-tools=7.0.12 \
-   mongodb-org-database-tools-extra=7.0.12
-echo "mongodb-org hold" | sudo dpkg --set-selections
-echo "mongodb-org-database hold" | sudo dpkg --set-selections
-echo "mongodb-org-server hold" | sudo dpkg --set-selections
-echo "mongodb-mongosh hold" | sudo dpkg --set-selections
-echo "mongodb-org-mongos hold" | sudo dpkg --set-selections
-echo "mongodb-org-cryptd hold" | sudo dpkg --set-selections
-echo "mongodb-org-tools hold" | sudo dpkg --set-selections
-echo "mongodb-org-database-tools-extra hold" | sudo dpkg --set-selections
+# 既存のMongoDBリポジトリファイルをクリーンアップ (必要に応じて)
+sudo rm -f /etc/apt/trusted.gpg.d/mongodb-org-4.4.gpg # もし以前のバージョンがあれば
+sudo rm -f /etc/apt/trusted.gpg.d/mongodb-org-7.0.gpg # 新しいキーを再インポートするため
+sudo rm -f /etc/apt/sources.list.d/mongodb-org-4.4.list # もし以前のバージョンがあれば
+sudo rm -f /etc/apt/sources.list.d/mongodb-org-7.0.list # 新しいリポジトリを再追加するため
+
+# gnupgとcurlのインストール確認
+sudo apt-get update
+sudo apt-get install -y gnupg curl
+
+# MongoDB 7.0 GPG Public Keyのインポート
+curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
+   sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/mongodb-org-7.0.gpg
+
+# MongoDB 7.0 リポジトリの追加 (Debian Bullseye用)
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/debian bullseye/mongodb-org/7.0 main" | \
+   sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+
+# apt パッケージリストの更新
+sudo apt-get update
+
+# MongoDB 7.0 のインストール
+sudo apt-get install -y mongodb-org
+# sudo apt-get install -y \
+#    mongodb-org=7.0.12 \
+#    mongodb-org-database=7.0.12 \
+#    mongodb-org-server=7.0.12 \
+#    mongodb-mongosh \
+#    mongodb-org-shell=7.0.12 \
+#    mongodb-org-mongos=7.0.12 \
+#    mongodb-org-tools=7.0.12 \
+#     mongodb-org-database-tools-extra=7.0.12
+# echo "mongodb-org hold" | sudo dpkg --set-selections
+# echo "mongodb-org-database hold" | sudo dpkg --set-selections
+# echo "mongodb-org-server hold" | sudo dpkg --set-selections
+# echo "mongodb-mongosh hold" | sudo dpkg --set-selections
+# echo "mongodb-org-mongos hold" | sudo dpkg --set-selections
+# echo "mongodb-org-cryptd hold" | sudo dpkg --set-selections
+# echo "mongodb-org-tools hold" | sudo dpkg --set-selections
+# echo "mongodb-org-database-tools-extra hold" | sudo dpkg --set-selections
 
 # IPバインディングを 0.0.0.0 に変更
 sed -i "s/bindIp: 127.0.0.1/bindIp: 0.0.0.0/" /etc/mongod.conf
@@ -34,8 +48,9 @@ sed -i "s/bindIp: 127.0.0.1/bindIp: 0.0.0.0/" /etc/mongod.conf
 # 認証を有効にする
 echo -e "\nsecurity:\n  authorization: enabled" >> /etc/mongod.conf
 
-systemctl restart mongod
-systemctl enable mongod
+# MongoDB サービスを開始・有効化
+sudo systemctl enable mongod
+sudo systemctl start mongod
 
 # gcloud CLI のインストール（追加）
 echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
