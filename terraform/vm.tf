@@ -99,7 +99,7 @@ resource "google_compute_instance" "mongodb_vm" {
     startup-script = "./startup-script.sh"
   }
 
-  tags = ["mongodb-server"]
+  tags = ["mongodb-vm"]
 
   # TerraformがSecretの作成を待ってからVMを作成するように依存関係を明示
   depends_on = [
