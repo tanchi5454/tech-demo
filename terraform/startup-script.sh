@@ -7,22 +7,18 @@ echo "Configuring package sources..."
 apt-get update
 apt-get install -y gnupg curl
 
-# ★★★ 修正: curlの書き込みエラーを回避するため、一時ファイルにダウンロードする方法に変更 ★★★
 # MongoDB 7.0 GPGキーのインポート
 echo "Importing MongoDB GPG key..."
 curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc -o /tmp/mongodb.gpg
-# ★★★ 修正: gpgコマンドに --batch --yes を追加 ★★★
 cat /tmp/mongodb.gpg | sudo gpg --batch --yes --dearmor -o /etc/apt/trusted.gpg.d/mongodb-org-7.0.gpg
 
 # Debian 11 (Bullseye) 用のMongoDBリポジトリを追加
 echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/debian bullseye/mongodb-org/7.0 main" | \
    sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
 
-# ★★★ 修正: Google Cloud SDKのキーも同様に修正 ★★★
 # Google Cloud SDK GPGキーのインポート
 echo "Importing Google Cloud SDK GPG key..."
 curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg -o /tmp/gcloud.gpg
-# ★★★ 修正: gpgコマンドに --batch --yes を追加 ★★★
 cat /tmp/gcloud.gpg | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/cloud.google.gpg
 
 # Google Cloud SDKリポジトリを追加
@@ -36,8 +32,17 @@ echo "Updating package lists..."
 apt-get update
 
 echo "Installing MongoDB and Google Cloud SDK..."
-# --allow-downgrades は依存関係の問題を解決するために追加
-apt-get install -y --allow-downgrades mongodb-org mongodb-mongosh google-cloud-sdk
+# ★★★ 修正: 特定のバージョンを指定してインストールするのみとし、holdコマンドは削除 ★★★
+apt-get install -y --allow-downgrades \
+   mongodb-org=7.0.12 \
+   mongodb-org-database=7.0.12 \
+   mongodb-org-server=7.0.12 \
+   mongodb-mongosh \
+   mongodb-org-shell=7.0.12 \
+   mongodb-org-mongos=7.0.12 \
+   mongodb-org-tools=7.0.12 \
+   mongodb-org-database-tools-extra=7.0.12 \
+   google-cloud-sdk
 
 
 # --- MongoDBの設定 ---
