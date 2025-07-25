@@ -51,7 +51,27 @@ echo -e "\nsecurity:\n  authorization: enabled" >> /etc/mongod.conf
 sudo systemctl enable mongod
 sudo systemctl start mongod
 
-# gcloud CLI のインストール（追加）
+# MongoDBサービスがアクティブになるまで待機するロジックを追加
+echo "Waiting for MongoDB to start..."
+for i in {1..30}; do
+    if systemctl is-active --quiet mongod; then
+        echo "MongoDB is active."
+        break
+    fi
+    echo "Waiting for mongod... ($i/30)"
+    sleep 2
+done
+
+if ! systemctl is-active --quiet mongod; then
+    echo "::error::MongoDB failed to start in time."
+    # 失敗した場合にデバッグ用のログを出力
+    journalctl -u mongod --no-pager
+    exit 1
+fi
+# サービスがアクティブになった後、ポートがリッスン状態になるまで少し待つ
+sleep 5
+
+# gcloud CLI のインストール
 echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
 curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
 apt-get update && apt-get install -y google-cloud-sdk
@@ -66,13 +86,12 @@ MONGO_PASS=$(gcloud secrets versions access latest --secret="mongodb-password" -
 
 # 取得した認証情報でDBユーザーを作成
 sleep 10
-mongo --eval "db.getSiblingDB('admin').createUser({user: '\$MONGO_USER', pwd: '\$MONGO_PASS', roles: [{role: 'readWriteAnyDatabase', db: 'admin'}]})"
+mongosh --eval "db.getSiblingDB('admin').createUser({user: '\$MONGO_USER', pwd: '\$MONGO_PASS', roles: [{role: 'readWriteAnyDatabase', db: 'admin'}]})"
 
 # todo_db データベースと初期コレクションを作成
 echo "Creating default database 'todo_db' and initial collection..."
-# 作成したユーザーで認証し、todo_dbデータベース内にtasksコレクションを作成します。
-# これにより、アプリケーションが接続する前にデータベースが確実に存在します。
-mongo "mongodb://\${MONGO_USER}:\${MONGO_PASS}@localhost:27017/todo_db?authSource=admin" --eval "db.createCollection('tasks')"
+# 作成したユーザーで認証し、todo_dbデータベース内にtasksコレクションを作成
+mongosh "mongodb://\${MONGO_USER}:\${MONGO_PASS}@localhost:27017/todo_db?authSource=admin" --eval "db.createCollection('tasks')"
 
 # バックアップスクリプトの作成（認証情報を使用するよう更新）
 cat <<EOT > /usr/local/bin/backup-mongo.sh
