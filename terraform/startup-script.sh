@@ -32,7 +32,7 @@ echo "Updating package lists..."
 apt-get update
 
 echo "Installing MongoDB and Google Cloud SDK..."
-# ★★★ 修正: 特定のバージョンを指定してインストールするのみとし、holdコマンドは削除 ★★★
+# 特定のバージョンを指定してインストールするのみとし、holdコマンドは削除
 apt-get install -y --allow-downgrades \
    mongodb-org=7.0.12 \
    mongodb-org-database=7.0.12 \
@@ -49,8 +49,19 @@ apt-get install -y --allow-downgrades \
 echo "Configuring MongoDB..."
 # IPバインディングを 0.0.0.0 に変更して外部からの接続を許可
 sed -i "s/bindIp: 127.0.0.1/bindIp: 0.0.0.0/" /etc/mongod.conf
-# 認証を有効にする
-echo -e "\nsecurity:\n  authorization: enabled" >> /etc/mongod.conf
+
+# ★★★ 修正: 認証を有効にするための、より堅牢な方法に変更 ★★★
+# security: セクションがコメントアウトされていれば解除
+sudo sed -i -e 's/^\s*#\s*security:/security:/g' /etc/mongod.conf
+# security: セクションが存在しない場合はファイル末尾に追加
+if ! grep -q "^\s*security:" /etc/mongod.conf; then
+  echo "security:" | sudo tee -a /etc/mongod.conf
+fi
+# 既存の authorization 行を削除 (コメントアウトされているものも含む)
+sudo sed -i -e '/^\s*#\s*authorization:/d' -e '/^\s*authorization:/d' /etc/mongod.conf
+# security: セクションの直下に authorization: enabled を挿入
+sudo sed -i '/^\s*security:/a \ \ authorization: enabled' /etc/mongod.conf
+
 
 # MongoDB サービスを開始・有効化
 systemctl restart mongod
