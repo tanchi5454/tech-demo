@@ -129,7 +129,7 @@ jobs:
         echo "Getting pod name..."
         # ラベルを使ってPodの名前を取得
         POD_NAME=$(kubectl get pods -l app=wiz-app -o jsonpath='{.items[0].metadata.name}')
-        
+
         echo "Verifying content of wizexercise.txt in pod: $POD_NAME"
         # Pod内でコマンドを実行し、ファイルの内容を出力
         kubectl exec $POD_NAME -- cat /app/wizexercise.txt
@@ -141,7 +141,7 @@ jobs:
         echo "::error::Pod verification failed. Collecting debug information..."
         echo "--- Pods Status ---"
         kubectl get pods -l app=wiz-app -o wide
-        
+
         POD_NAMES=$(kubectl get pods -l app=wiz-app -o jsonpath='{.items[*].metadata.name}')
         for POD_NAME in $POD_NAMES; do
           echo "--- Describing pod: $POD_NAME ---"
