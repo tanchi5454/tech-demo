@@ -68,6 +68,12 @@ MONGO_PASS=$(gcloud secrets versions access latest --secret="mongodb-password" -
 sleep 10
 mongo --eval "db.getSiblingDB('admin').createUser({user: '\$MONGO_USER', pwd: '\$MONGO_PASS', roles: [{role: 'readWriteAnyDatabase', db: 'admin'}]})"
 
+# todo_db データベースと初期コレクションを作成
+echo "Creating default database 'todo_db' and initial collection..."
+# 作成したユーザーで認証し、todo_dbデータベース内にtasksコレクションを作成します。
+# これにより、アプリケーションが接続する前にデータベースが確実に存在します。
+mongo "mongodb://\${MONGO_USER}:\${MONGO_PASS}@localhost:27017/todo_db?authSource=admin" --eval "db.createCollection('tasks')"
+
 # バックアップスクリプトの作成（認証情報を使用するよう更新）
 cat <<EOT > /usr/local/bin/backup-mongo.sh
 #!/bin/bash
