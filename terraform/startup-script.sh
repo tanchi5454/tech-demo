@@ -23,7 +23,7 @@ echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/debian bullseye/mong
 sudo apt-get update
 
 # MongoDB 7.0 のインストール
-sudo apt-get install -y \
+sudo apt-get install -y --allow-downgrades \
    mongodb-org=7.0.12 \
    mongodb-org-database=7.0.12 \
    mongodb-org-server=7.0.12 \
