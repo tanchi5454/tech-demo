@@ -11,7 +11,8 @@ apt-get install -y gnupg curl
 # MongoDB 7.0 GPGキーのインポート
 echo "Importing MongoDB GPG key..."
 curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc -o /tmp/mongodb.gpg
-cat /tmp/mongodb.gpg | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/mongodb-org-7.0.gpg
+# ★★★ 修正: gpgコマンドに --batch --yes を追加 ★★★
+cat /tmp/mongodb.gpg | sudo gpg --batch --yes --dearmor -o /etc/apt/trusted.gpg.d/mongodb-org-7.0.gpg
 
 # Debian 11 (Bullseye) 用のMongoDBリポジトリを追加
 echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/debian bullseye/mongodb-org/7.0 main" | \
@@ -21,7 +22,8 @@ echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/debian bullseye/mong
 # Google Cloud SDK GPGキーのインポート
 echo "Importing Google Cloud SDK GPG key..."
 curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg -o /tmp/gcloud.gpg
-cat /tmp/gcloud.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+# ★★★ 修正: gpgコマンドに --batch --yes を追加 ★★★
+cat /tmp/gcloud.gpg | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/cloud.google.gpg
 
 # Google Cloud SDKリポジトリを追加
 echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | \
