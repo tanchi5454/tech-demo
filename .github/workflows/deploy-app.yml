@@ -9,7 +9,7 @@ on:
       - 'app/**'
       - 'k8s/**'
   
-  # 2. GitHubのActionsタブから手動で実行可能にする
+  # GitHubのActionsタブから手動で実行
   workflow_dispatch:
 
 # ワークフロー全体で使用する環境変数を定義
@@ -108,11 +108,12 @@ jobs:
         # echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_IP}:27017/todo_db?authSource=admin"
         MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
         
-        echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+        echo "Constructed MONGO_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+        echo "Constructed MONGO_URI (password hidden): mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
 
         # Kubernetes Secretを作成（存在すれば更新）
         kubectl create secret generic wiz-app-secrets \
-          --from-literal=MONGODB_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin" \
+          --from-literal=MONGODB_URI="${MONGO_URI}" \
           --from-literal=SECRET_KEY="$JWT_KEY" \
           --dry-run=client -o yaml | kubectl apply -f -
 
