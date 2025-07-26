@@ -36,13 +36,13 @@ spec:
         # ★★★ Secretから環境変数を設定 ★★★
         # アプリケーションが必要とする機密情報を環境変数としてコンテナに渡します。
         env:
-        - name: MONGODB_URI
+        - name: MONGO_URI
           valueFrom:
             secretKeyRef:
               # 00-secret.yamlで定義し、パイプラインで値を設定したSecretの名前
               name: wiz-app-secrets
               # Secret内のキー
-              key: MONGODB_URI
+              key: MONGO_URI
         - name: SECRET_KEY
           valueFrom:
             secretKeyRef:
