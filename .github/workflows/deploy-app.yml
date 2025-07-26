@@ -112,7 +112,7 @@ jobs:
 
         # Kubernetes Secretを作成（存在すれば更新）
         kubectl create secret generic wiz-app-secrets \
-          --from-literal=MONGODB_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_IP}:27017/todo_db?authSource=admin" \
+          --from-literal=MONGODB_URI="$MONGO_URI" \
           --from-literal=SECRET_KEY="$JWT_KEY" \
           --dry-run=client -o yaml | kubectl apply -f -
 
