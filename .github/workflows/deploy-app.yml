@@ -2,7 +2,6 @@ name: Deploy Application to GKE
 
 # ワークフローのトリガー設定
 on:
-  # 1. mainブランチの app/ または k8s/ ディレクトリにプッシュされたときに自動実行
   push:
     branches:
       - main
@@ -69,32 +68,47 @@ jobs:
     # 6. Secret Managerから機密情報を取得し、Kubernetes Secretを作成
     - name: Create/Update Kubernetes Secrets
       id: create-secrets
+      env:
+        MONGO_USER: ${{ secrets.MONGO_USER }}
+        MONGO_PASS: ${{ secrets.MONGO_PASS }}
+        JWT_KEY: ${{ secrets.JWT_KEY }}
       run: |
         # スクリプトが失敗した場合に即座に終了させる設定
         set -euo pipefail
 
-        echo "::group::Retrieving secrets from Secret Manager"
+        # echo "::group::Retrieving secrets from Secret Manager"
         # Secret Managerから値を取得し、末尾の改行を削除
-        MONGO_USER=$(gcloud secrets versions access latest --secret='mongodb-user' | tr -d '\n')
-        MONGO_PASS=$(gcloud secrets versions access latest --secret='mongodb-password' | tr -d '\n')
-        JWT_KEY=$(gcloud secrets versions access latest --secret='jwt-secret-key' | tr -d '\n')
-        echo "::endgroup::"
+        # MONGO_USER=$(gcloud secrets versions access latest --secret='mongodb-user' | tr -d '\n')
+        # MONGO_PASS=$(gcloud secrets versions access latest --secret='mongodb-password' | tr -d '\n')
+        # JWT_KEY=$(gcloud secrets versions access latest --secret='jwt-secret-key' | tr -d '\n')
+        # echo "::endgroup::"
         
-        echo "::group::Retrieving MongoDB VM IP Address"
+        # echo "::group::Retrieving MongoDB VM IP Address"
         # MongoDB VMの内部IPアドレスを取得
-        MONGO_IP=$(gcloud compute instances describe mongodb-vm --zone asia-northeast1-a --format='get(networkInterfaces[0].networkIP)')
-        echo "MongoDB VM Internal IP: $MONGO_IP"
-        echo "::endgroup::"
+        # MONGO_IP=$(gcloud compute instances describe mongodb-vm --zone asia-northeast1-a --format='get(networkInterfaces[0].networkIP)')
+        # echo "MongoDB VM Internal IP: $MONGO_IP"
+        # echo "::endgroup::"
 
         # Validate variables
-        if [[ -z "$MONGO_USER" || -z "$MONGO_PASS" || -z "$MONGO_IP" ]]; then
-        echo "::error::One or more MongoDB connection variables are empty!"
-        exit 1
+        # if [[ -z "$MONGO_USER" || -z "$MONGO_PASS" || -z "$MONGO_IP" ]]; then
+        # echo "::error::One or more MongoDB connection variables are empty!"
+        # exit 1
+        # fi
+
+        # GitHub Secretsが設定されているか確認
+        if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
+          echo "::error::Required secrets (MONGO_USER, MONGO_PASS, JWT_KEY) are not set in GitHub repository secrets."
+          exit 1
         fi
+
+        MONGO_HOSTNAME="mongodb-vm"
 
         # 接続文字列を構築
         # MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_IP}:27017/todo_db?authSource=admin"
         # echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_IP}:27017/todo_db?authSource=admin"
+        MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+        
+        echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
 
         # Kubernetes Secretを作成（存在すれば更新）
         kubectl create secret generic wiz-app-secrets \
