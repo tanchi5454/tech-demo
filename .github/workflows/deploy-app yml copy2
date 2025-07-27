@@ -4,13 +4,16 @@ name: Deploy Application to GKE
 
 # ワークフローのトリガー設定
 on:
+  # 1. mainブランチの app/ または k8s/ ディレクトリにプッシュされたときに自動実行
   push:
     branches:
       - main
     paths:
       - 'app/**'
       - 'k8s/**'
-  workflow_dispatch:
+
+  # 2. GitHubのActionsタブから手動で実行できるようにする
+  # workflow_dispatch:
 
 # ワークフロー全体で使用する環境変数を定義
 env:

@@ -1,4 +1,4 @@
-# .github/workflows/deploy-app.yml ecret Managerから機密情報を取得してKubernetes Secretを作成
+# .github/workflows/deploy-app.yml Secret Managerから機密情報を取得してKubernetes Secretを作成
 
 name: Deploy Application to GKE
 
