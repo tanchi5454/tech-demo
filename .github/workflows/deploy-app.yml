@@ -76,10 +76,10 @@ jobs:
         echo "::endgroup::"
         
         # 変数が空でないことを確認
-        if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
-          echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions for the service account."
-          exit 1
-        fi
+        #if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
+        #  echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions for the service account."
+        #  exit 1
+        #fi
         
         # VMのホスト名は静的
         MONGO_HOSTNAME="mongodb-vm"

@@ -3,10 +3,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  # Deploymentの名前
   name: wiz-app-deployment
 spec:
-  # Podのレプリカ（インスタンス）数を2に設定
   replicas: 2
   # このDeploymentが管理するPodを特定するためのラベルセレクター
   selector:
