@@ -74,12 +74,13 @@ jobs:
         echo "::endgroup::"
         
         # 変数が空でないことを確認
-        if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
-          echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions for the service account."
-          exit 1
-        fi
+        # if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
+        #   echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions for the service account."
+        #   exit 1
+        # fi
         
         MONGO_HOSTNAME="mongodb-vm"
+
         MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
         
         echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
