@@ -36,7 +36,7 @@ spec:
         # ★★★ Secretから環境変数を設定 ★★★
         # アプリケーションが必要とする機密情報を環境変数としてコンテナに渡します。
         env:
-        - name: MONGO_URI
+        - name: MONGODB_URI
           valueFrom:
             secretKeyRef:
               # 00-secret.yamlで定義し、パイプラインで値を設定したSecretの名前
