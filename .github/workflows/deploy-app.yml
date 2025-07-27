@@ -1,4 +1,4 @@
-# .github/workflows/deploy-app.yml
+# .github/workflows/deploy-app.yml GitHub Secrets機密情報からMONGO_URI生成
 
 name: Deploy Application to GKE
 
@@ -63,30 +63,31 @@ jobs:
     # 6. GitHub Secretsから機密情報を取得し、Kubernetes Secretを作成
     - name: Create/Update Kubernetes Secrets
       id: create-secrets
-      # GitHubリポジトリに設定されたSecretsを、このステップの環境変数として読み込みます
-      env:
-        MONGO_USER: ${{ secrets.MONGO_USER }}
-        MONGO_PASS: ${{ secrets.MONGO_PASS }}
-        JWT_KEY: ${{ secrets.JWT_KEY }}
       run: |
         set -euo pipefail
 
-        # GitHub Secretsが設定されているか確認
-        if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
-          echo "::error::Required secrets (MONGO_USER, MONGO_PASS, JWT_KEY) are not set in GitHub repository secrets."
-          exit 1
-        fi
+        echo "::group::Retrieving secrets from Secret Manager"
+        # Secret Managerから値を取得
+        MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-user')")
+        MONGO_PASS=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-password')")
+        JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='jwt-secret-key')")
+        echo "::endgroup::"
+
+        # 変数が空でないことを確認
+         if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
+           echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions for the service account."
+           exit 1
+         fi
 
         # VMのホスト名は静的
         MONGO_HOSTNAME="mongodb-vm"
 
         # 接続文字列を構築
-        #MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
-
-        #echo "Constructed MONGO_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+        MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+        echo "Constructed MONGO_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
 
         # Kubernetes Secretを作成（存在すれば更新）
-        kubectl create secret generic wiz-app-secrets --from-literal=MONGODB_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"  --from-literal=SECRET_KEY="$JWT_KEY" --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create secret generic wiz-app-secrets --from-literal=MONGODB_URI="$MONGO_URI" --from-literal=SECRET_KEY="$JWT_KEY" --dry-run=client -o yaml | kubectl apply -f -
 
     # 7. KubernetesマニフェストをGKEにデプロイ
     - name: Deploy to GKE
@@ -100,7 +101,7 @@ jobs:
       id: verify-pod
       run: |
         echo "Waiting for new pods to be ready..."
-        kubectl wait --for=condition=ready pod -l app=wiz-app --timeout=180s
+        kubectl wait --for=condition=ready pod -l app=wiz-app --timeout=120s
         
         POD_NAME=$(kubectl get pods -l app=wiz-app -o jsonpath='{.items[0].metadata.name}')
         
