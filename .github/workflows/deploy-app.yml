@@ -67,7 +67,7 @@ jobs:
         set -euo pipefail
 
         echo "::group::Retrieving secrets from Secret Manager"
-        # Secret Managerから値を取得し、末尾の改行を削除
+        # Secret Managerから値を取得
         MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-user')")
         MONGO_PASS=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-password')")
         JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='jwt-secret-key')")
@@ -79,16 +79,15 @@ jobs:
         #   exit 1
         # fi
         
+        # VMのホスト名は静的
         MONGO_HOSTNAME="mongodb-vm"
 
-        MONGODB_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
-        
-        echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+        # 接続文字列を構築
+        MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+        echo "Constructed MONGO_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
 
-        kubectl create secret generic wiz-app-secrets \
-          --from-literal=MONGODB_URI="$MONGODB_URI" \
-          --from-literal=SECRET_KEY="$JWT_KEY" \
-          --dry-run=client -o yaml | kubectl apply -f -
+        # Kubernetes Secretを作成（存在すれば更新）
+        kubectl create secret generic wiz-app-secrets --from-literal=MONGODB_URI="$MONGO_URI" --from-literal=SECRET_KEY="$JWT_KEY" --dry-run=client -o yaml | kubectl apply -f -
 
     # 7. KubernetesマニフェストをGKEにデプロイ
     - name: Deploy to GKE
