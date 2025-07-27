@@ -36,13 +36,13 @@ spec:
         # ★★★ Secretから環境変数を設定 ★★★
         # アプリケーションが必要とする機密情報を環境変数としてコンテナに渡します。
         env:
-        - name: MONGO_URI
+        - name: MONGODB_URI
           valueFrom:
             secretKeyRef:
               # ★★★ wiz-app-secrets という名前のSecretを参照 ★★★
               name: wiz-app-secrets
               # ★★★ その中の MONGODB_URI というキーの値を読み込む ★★★
-              key: MONGO_URI
+              key: MONGODB_URI
         - name: SECRET_KEY
           valueFrom:
             secretKeyRef:
