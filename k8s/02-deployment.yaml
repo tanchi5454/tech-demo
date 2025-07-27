@@ -7,7 +7,7 @@ metadata:
   name: wiz-app-deployment
 spec:
   # Podのレプリカ（インスタンス）数を2に設定
-  replicas: 2
+  replicas: 3
   # このDeploymentが管理するPodを特定するためのラベルセレクター
   selector:
     matchLabels:
