@@ -13,7 +13,7 @@ on:
       - 'k8s/**'
 
   # 2. GitHubのActionsタブから手動で実行できるようにする
-  # workflow_dispatch:
+  workflow_dispatch:
 
 # ワークフロー全体で使用する環境変数を定義
 env:
