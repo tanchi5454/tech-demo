@@ -86,7 +86,7 @@ jobs:
         # 接続文字列を構築
         MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
         
-        echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+        echo "Constructed MONGO_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
         # Kubernetes Secretを作成（存在すれば更新）
         kubectl create secret generic wiz-app-secrets --from-literal=MONGODB_URI="$MONGO_URI" --from-literal=SECRET_KEY="$JWT_KEY" --dry-run=client -o yaml | kubectl apply -f -
 
