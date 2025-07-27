@@ -39,9 +39,9 @@ spec:
         - name: MONGODB_URI
           valueFrom:
             secretKeyRef:
-              # 00-secret.yamlで定義し、パイプラインで値を設定したSecretの名前
+              # ★★★ wiz-app-secrets という名前のSecretを参照 ★★★
               name: wiz-app-secrets
-              # Secret内のキー
+              # ★★★ その中の MONGODB_URI というキーの値を読み込む ★★★
               key: MONGODB_URI
         - name: SECRET_KEY
           valueFrom:
