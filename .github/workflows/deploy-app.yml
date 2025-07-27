@@ -1,21 +1,18 @@
-# .github/workflows/deploy-app.yml Secrets Managerから取得
+# .github/workflows/deploy-app.yml GitHub Secretsから機密情報を取得し、Kubernetes Secretを作成
 
 name: Deploy Application to GKE
 
 # ワークフローのトリガー設定
 on:
-  # 1. mainブランチの app/ または k8s/ ディレクトリにプッシュされたときに自動実行
   push:
     branches:
       - main
     paths:
       - 'app/**'
       - 'k8s/**'
-  
-  # 2. GitHubのActionsタブから手動で実行できるようにする
   workflow_dispatch:
 
-# ワークフロー全体で使用する環境変数を定義します
+# ワークフロー全体で使用する環境変数を定義
 env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GKE_CLUSTER: wiz-gke-cluster
@@ -34,89 +31,83 @@ jobs:
       id-token: 'write'
 
     steps:
-    # 1. リポジトリのコードをチェックアウトします
+    # 1. リポジトリのコードをチェックアウト
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # 2. Google Cloudへの認証を行います
+    # 2. Google Cloudへの認証
     - id: 'auth'
       uses: 'google-github-actions/auth@v1'
       with:
         workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
         service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-    # 3. gcloud CLIをセットアップします
+    # 3. gcloud CLIをセットアップ
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
 
-    # 4. GKEクラスタの認証情報を取得し、kubectlが使えるようにします
+    # 4. GKEクラスタの認証情報を取得
     - name: Get GKE credentials
       uses: google-github-actions/get-gke-credentials@v1
       with:
         cluster_name: ${{ env.GKE_CLUSTER }}
         location: ${{ env.GKE_REGION }}
 
-    # 5. DockerイメージをビルドしてArtifact Registryにプッシュします
+    # 5. DockerイメージをビルドしてArtifact Registryにプッシュ
     - name: Build and Push Docker image
       run: |
         gcloud auth configure-docker ${{ env.GKE_REGION }}-docker.pkg.dev
         docker build -t ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -f app/Dockerfile ./
         docker push ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-    # 6. Secret Managerから機密情報を取得してKubernetes Secretを作成
+    # 6. GitHub Secretsから機密情報を取得し、Kubernetes Secretを作成
     - name: Create/Update Kubernetes Secrets
       id: create-secrets
+      # GitHubリポジトリに設定されたSecretsを、このステップの環境変数として読み込みます
+      env:
+        MONGO_USER: ${{ secrets.MONGO_USER }}
+        MONGO_PASS: ${{ secrets.MONGO_PASS }}
+        JWT_KEY: ${{ secrets.JWT_KEY }}
       run: |
         set -euo pipefail
-        echo "::group::Retrieving secrets from Secret Manager"
-        # Secret Managerから値を取得し、末尾の改行を削除
-        MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-user')")
-        MONGO_PASS=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-password')")
-        JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='jwt-secret-key')")
-        echo "::endgroup::"
-        
-        # 変数が空でないことを確認
-        #if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
-        #  echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions for the service account."
-        #  exit 1
-        #fi
-        
+
+        # GitHub Secretsが設定されているか確認
+        if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
+          echo "::error::Required secrets (MONGO_USER, MONGO_PASS, JWT_KEY) are not set in GitHub repository secrets."
+          exit 1
+        fi
+
         # VMのホスト名は静的
         MONGO_HOSTNAME="mongodb-vm"
+
         # 接続文字列を構築
         MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
-        
-        echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
-        # Kubernetes Secretを作成（存在すれば更新）
-        kubectl create secret generic wiz-app-secrets --from-literal=MONGODB_URI="$MONGO_URI" --from-literal=SECRET_KEY="$JWT_KEY" --dry-run=client -o yaml | kubectl apply -f -
 
-    # 7. KubernetesマニフェストをGKEにデプロイします
+        echo "Constructed MONGO_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+
+        # Kubernetes Secretを作成（存在すれば更新）
+        kubectl create secret generic wiz-app-secrets --from-literal=MONGODB_URI="$MONGO_URI"  --from-literal=SECRET_KEY="$JWT_KEY" --dry-run=client -o yaml | kubectl apply -f -
+
+    # 7. KubernetesマニフェストをGKEにデプロイ
     - name: Deploy to GKE
       run: |
-        echo "--- Content of 02-deployment.yaml before replacement ---"
-        cat k8s/02-deployment.yaml
-        # Deploymentファイル内のプレースホルダーを、ビルドしたイメージの完全なパスに置換
         FULL_IMAGE_PATH="${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
         sed -i "s|image: __IMAGE_PLACEHOLDER__|image: ${FULL_IMAGE_PATH}|g" k8s/02-deployment.yaml
-        
-        echo "--- Content of 02-deployment.yaml after replacement ---"
-        cat k8s/02-deployment.yaml
-        echo "Applying Kubernetes manifests..."
         kubectl apply -f k8s/
 
-    # 8. 実行中のコンテナ内でwizexercise.txtの存在と内容を検証します
+    # 8. 実行中のコンテナ内でwizexercise.txtの存在と内容を検証
     - name: Verify wizexercise.txt in running container
       id: verify-pod
       run: |
-        echo "Waiting for pods to be ready..."
+        echo "Waiting for new pods to be ready..."
         kubectl wait --for=condition=ready pod -l app=wiz-app --timeout=120s
         
-        echo "Getting pod name..."
         POD_NAME=$(kubectl get pods -l app=wiz-app -o jsonpath='{.items[0].metadata.name}')
         
         echo "Verifying content of wizexercise.txt in pod: $POD_NAME"
         kubectl exec $POD_NAME -- cat /app/wizexercise.txt
-    # 9. Podの準備が失敗した場合にデバッグ情報を出力するステップ
+
+    # 9. Podの準備が失敗した場合にデバッグ情報を出力
     - name: Debug Pods on Failure
       if: failure() && steps.verify-pod.conclusion == 'failure'
       run: |
