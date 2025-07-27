@@ -63,15 +63,19 @@ jobs:
     # 6. GitHub Secretsから機密情報を取得し、Kubernetes Secretを作成
     - name: Create/Update Kubernetes Secrets
       id: create-secrets
-      env:
-        MONGO_USER: ${{ secrets.MONGO_USER }}
-        MONGO_PASS: ${{ secrets.MONGO_PASS }}
-        JWT_KEY: ${{ secrets.JWT_KEY }}
       run: |
         set -euo pipefail
 
+        echo "::group::Retrieving secrets from Secret Manager"
+        # Secret Managerから値を取得し、末尾の改行を削除
+        MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-user')")
+        MONGO_PASS=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-password')")
+        JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='jwt-secret-key')")
+        echo "::endgroup::"
+        
+        # 変数が空でないことを確認
         if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
-          echo "::error::Required secrets (MONGO_USER, MONGO_PASS, JWT_KEY) are not set in GitHub repository secrets."
+          echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions for the service account."
           exit 1
         fi
         
