@@ -82,8 +82,8 @@ jobs:
 
         # Kubernetes Secretを作成（存在すれば更新）
         kubectl create secret generic wiz-app-secrets \
-          --from-literal=MONGODB_URI="$MONGO_URI" \
-          --from-literal=SECRET_KEY="$JWT_KEY" \
+          --from-literal=MONGODB_URI="${MONGO_URI}" \
+          --from-literal=SECRET_KEY="${JWT_KEY}" \
           --dry-run=client -o yaml | kubectl apply -f -
 
     # 7. KubernetesマニフェストをGKEにデプロイ
