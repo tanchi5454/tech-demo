@@ -70,9 +70,9 @@ jobs:
         set -euo pipefail
         echo "::group::Retrieving secrets from Secret Manager"
         # Secret Managerから値を取得し、末尾の改行を削除
-        MONGO_USER="$(gcloud secrets versions access latest --secret='mongodb-user' | tr -d '\n')"
-        MONGO_PASS=$"$(gcloud secrets versions access latest --secret='mongodb-password' | tr -d '\n')"
-        JWT_KEY="$(gcloud secrets versions access latest --secret='jwt-secret-key' | tr -d '\n')"
+        MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-user')")
+        MONGO_PASS=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-password')")
+        JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='jwt-secret-key')")
         echo "::endgroup::"
 
         # 変数が空でないことを確認
