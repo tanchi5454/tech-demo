@@ -76,7 +76,7 @@ jobs:
         # 注意: この方法は安全ではありません。演習の簡素化のためだけに使用してください。
         # パスワードはVMの起動スクリプトで設定したものと一致させる必要があります。
         MONGO_URI="mongodb://wizadmin:wizpassword@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
-        JWT_KEY="a-very-secure-and-random-jwt-secret-key"
+        JWT_KEY="secret123"
         
         echo "Constructed MONGODB_URI (password hidden): mongodb://wizadmin:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
 
