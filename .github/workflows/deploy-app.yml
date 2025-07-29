@@ -74,7 +74,7 @@ jobs:
         # GitHub Secretsが設定されているか確認
         if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
           echo "::error::Required secrets (MONGO_USER, MONGO_PASS, JWT_KEY) are not set in GitHub repository secrets."
-          exit 1
+          exit secret_faild
         fi
         
         MONGO_HOSTNAME="mongodb-vm"
