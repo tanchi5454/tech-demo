@@ -60,26 +60,30 @@ jobs:
         docker build -t ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -f app/Dockerfile ./
         docker push ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-    # 6. ★★★ 修正: 認証情報をハードコードしてKubernetes Secretを作成 (非推奨) ★★★
+    # 6. 認証情報をハードコードしてKubernetes Secretを作成
     - name: Create/Update Kubernetes Secrets
       id: create-secrets
       run: |
         set -euo pipefail
         
         MONGO_HOSTNAME="mongodb-vm"
-
-        # ★★★ アンチパターン: 認証情報を直接コードに記述 ★★★
-        # パスワードはVMの起動スクリプトで設定したものと一致させる必要があります。
         MONGO_URI="mongodb://wizadmin:wizpassword@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
         JWT_KEY="secret123"
         
         echo "Constructed MONGODB_URI (password hidden): mongodb://wizadmin:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
 
-        # Kubernetes Secretを作成（存在すれば更新）
         kubectl create secret generic wiz-app-secrets \
           --from-literal=MONGODB_URI="$MONGO_URI" \
           --from-literal=SECRET_KEY="$JWT_KEY" \
           --dry-run=client -o yaml | kubectl apply -f -
+
+    # ★★★ 追加: 作成されたSecretを検証するステップ ★★★
+    - name: Verify Kubernetes Secret
+      run: |
+        echo "Verifying that the MONGODB_URI key exists in the secret..."
+        # このコマンドは、キーが存在しない場合や値が空の場合に失敗します
+        kubectl get secret wiz-app-secrets -o jsonpath='{.data.MONGODB_URI}' | base64 --decode | grep "mongodb://"
+        echo "Secret verified successfully."
 
     # 7. KubernetesマニフェストをGKEにデプロイ
     - name: Deploy to GKE
