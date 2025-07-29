@@ -35,7 +35,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # 2. Google Cloudへの認証 (Workload Identity連携を使用)
+    # 2. Google Cloudへの認証
     - id: 'auth'
       uses: 'google-github-actions/auth@v1'
       with:
@@ -60,26 +60,22 @@ jobs:
         docker build -t ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -f app/Dockerfile ./
         docker push ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-    # 6. GitHub Secretsから機密情報を取得し、Kubernetes Secretを作成
+    # 6. ★★★ 修正: 認証情報をハードコードしてKubernetes Secretを作成 (非推奨) ★★★
     - name: Create/Update Kubernetes Secrets
       id: create-secrets
-      env:
-        MONGO_USER: ${{ secrets.MONGO_USER }}
-        MONGO_PASS: ${{ secrets.MONGO_PASS }}
-        JWT_KEY: ${{ secrets.JWT_KEY }}
       run: |
         set -euo pipefail
         
-        if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
-          echo "::error::Required secrets (MONGO_USER, MONGO_PASS, JWT_KEY) are not set in GitHub repository secrets."
-          exit 1
-        fi
-        
         MONGO_HOSTNAME="mongodb-vm"
-        MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
-        
-        echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
 
+        # ★★★ アンチパターン: 認証情報を直接コードに記述 ★★★
+        # パスワードはVMの起動スクリプトで設定したものと一致させる必要があります。
+        MONGO_URI="mongodb://wizadmin:wizpassword@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+        JWT_KEY="secret123"
+        
+        echo "Constructed MONGODB_URI (password hidden): mongodb://wizadmin:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+
+        # Kubernetes Secretを作成（存在すれば更新）
         kubectl create secret generic wiz-app-secrets \
           --from-literal=MONGODB_URI="$MONGO_URI" \
           --from-literal=SECRET_KEY="$JWT_KEY" \
