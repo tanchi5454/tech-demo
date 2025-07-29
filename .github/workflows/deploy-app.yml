@@ -91,6 +91,13 @@ jobs:
         # Kubernetes Secretを作成（存在すれば更新）
         kubectl create secret generic wiz-app-secrets --from-literal=MONGODB_URI="$MONGO_URI" --from-literal=SECRET_KEY="$JWT_KEY" --dry-run=client -o yaml | kubectl apply -f -
 
+    - name: Verify Kubernetes Secret
+      run: |
+        echo "Verifying that the MONGODB_URI key exists in the secret..."
+        # このコマンドは、キーが存在しない場合や値が空の場合に失敗します
+        kubectl get secret wiz-app-secrets -o jsonpath='{.data.MONGODB_URI}' | base64 --decode | grep "mongodb://"
+        echo "Secret verified successfully."
+
     # 7. KubernetesマニフェストをGKEにデプロイします
     - name: Deploy to GKE
       run: |
