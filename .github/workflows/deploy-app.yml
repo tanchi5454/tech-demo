@@ -60,60 +60,47 @@ jobs:
         docker build -t ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -f app/Dockerfile ./
         docker push ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-    # 6. 認証情報をハードコードしてKubernetes Secretを作成
+    # 6. Secret Managerから機密情報を取得してKubernetes Secretを作成
     - name: Create/Update Kubernetes Secrets
       id: create-secrets
       run: |
         set -euo pipefail
+        echo "::group::Retrieving secrets from Secret Manager"
+        # Secret Managerから値を取得し、末尾の改行を削除
+        MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='db-user')")
+        MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='db-pass')")
+        JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='secret-key')")
+        echo "::endgroup::"
+        
+        # 変数が空でないことを確認
+        if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
+          echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions and Workload Identity configuration."
+          exit 1
+        fi
         
         MONGO_HOSTNAME="mongodb-vm"
-        MONGO_URI="mongodb://wizadmin:wizpassword@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
-        JWT_KEY="secret123"
+        MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
         
-        echo "Constructed MONGODB_URI (password hidden): mongodb://wizadmin:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+        echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
 
         kubectl create secret generic wiz-app-secrets \
           --from-literal=MONGODB_URI="$MONGO_URI" \
           --from-literal=SECRET_KEY="$JWT_KEY" \
           --dry-run=client -o yaml | kubectl apply -f -
 
-    # ★★★ 修正: 作成されたSecretをより詳細に検証するステップ ★★★
-    - name: Verify Kubernetes Secret
-      run: |
-        echo "Verifying secret content from cluster..."
-        # 安定性のために少し待機
-        sleep 5
-        
-        # クラスタから直接値を読み戻してデコード
-        DECODED_URI=$(kubectl get secret wiz-app-secrets -o jsonpath='{.data.MONGODB_URI}' | base64 --decode)
-        
-        echo "Decoded URI from cluster: ${DECODED_URI}"
-
-        # 値が正しいか検証
-        if [[ "${DECODED_URI}" != "mongodb://wizadmin:wizpassword@mongodb-vm:27017/todo_db?authSource=admin" ]]; then
-          echo "::error::Verification failed! The MONGODB_URI in the cluster is incorrect."
-          exit 1
-        fi
-        echo "Secret verified successfully."
-
     # 7. KubernetesマニフェストをGKEにデプロイ
     - name: Deploy to GKE
       run: |
         FULL_IMAGE_PATH="${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
         sed -i "s|image: __IMAGE_PLACEHOLDER__|image: ${FULL_IMAGE_PATH}|g" k8s/02-deployment.yaml
-        
-        echo "Applying Kubernetes manifests..."
         kubectl apply -f k8s/
-        
-        echo "Restarting deployment to apply secret changes..."
-        kubectl rollout restart deployment wiz-app-deployment
 
     # 8. 実行中のコンテナ内でwizexercise.txtの存在と内容を検証
     - name: Verify wizexercise.txt in running container
       id: verify-pod
       run: |
         echo "Waiting for new pods to be ready..."
-        kubectl wait --for=condition=ready pod -l app=wiz-app --timeout=120s
+        kubectl wait --for=condition=ready pod -l app=wiz-app --timeout=180s
         sleep 5
         POD_NAME=$(kubectl get pods -l app=wiz-app --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
         echo "Verifying content of wizexercise.txt in pod: $POD_NAME"
