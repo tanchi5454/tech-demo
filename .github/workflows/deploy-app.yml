@@ -28,18 +28,19 @@ jobs:
 
     permissions:
       contents: 'read'
-      id-token: 'write' # WIFには不要だが、念のため残しておく
+      id-token: 'write'
 
     steps:
     # 1. リポジトリのコードをチェックアウト
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # 2. ★★★ 修正: サービスアカウントキーを使ってGoogle Cloudへ認証 ★★★
+    # 2. Google Cloudへの認証 (Workload Identity連携を使用)
     - id: 'auth'
       uses: 'google-github-actions/auth@v1'
       with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+        workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
     # 3. gcloud CLIをセットアップ
     - name: Set up Cloud SDK
@@ -69,7 +70,7 @@ jobs:
         JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='jwt-secret-key')")
         
         if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
-          echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions for the service account."
+          echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions and Workload Identity configuration."
           exit 1
         fi
         
