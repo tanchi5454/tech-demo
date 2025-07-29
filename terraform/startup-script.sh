@@ -73,7 +73,7 @@ sleep 5
 # Secret Managerから認証情報を取得
 MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-user')")
 MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-password')")
-JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='secret-key')")
+# JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='secret-key')")
 
 # 取得した認証情報でDBユーザーを作成
 sleep 10

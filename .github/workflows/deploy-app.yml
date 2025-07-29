@@ -113,7 +113,7 @@ jobs:
       id: verify-pod
       run: |
         echo "Waiting for new pods to be ready..."
-        kubectl wait --for=condition=ready pod -l app=wiz-app --timeout=180s
+        kubectl wait --for=condition=ready pod -l app=wiz-app --timeout=120s
         sleep 5
         POD_NAME=$(kubectl get pods -l app=wiz-app --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
         echo "Verifying content of wizexercise.txt in pod: $POD_NAME"

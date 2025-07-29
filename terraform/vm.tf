@@ -1,46 +1,5 @@
 # vm.tf
 
-# --- Secret Managerで管理する機密情報 ---
-
-# ユーザー名用のSecret
-resource "google_secret_manager_secret" "mongodb_user" {
-  project   = var.project_id
-  secret_id = "mongodb-user"
-  replication {
-   auto {}
-  }
-}
-resource "google_secret_manager_secret_version" "mongodb_user_version" {
-  secret      = google_secret_manager_secret.mongodb_user.id
-  secret_data = "wizadmin"
-}
-
-# パスワード用のSecret
-resource "google_secret_manager_secret" "mongodb_password" {
-  project   = var.project_id
-  secret_id = "mongodb-password"
-  replication {
-   auto {}
-  }
-}
-resource "google_secret_manager_secret_version" "mongodb_password_version" {
-  secret      = google_secret_manager_secret.mongodb_password.id
-  secret_data = "wizpassword"
-}
-
-#  JWTトークン用のSecret Key
-resource "google_secret_manager_secret" "jwt_secret_key" {
-  project   = var.project_id
-  secret_id = "secret-key"
-  replication {
-   auto {}
-  }
-}
-resource "google_secret_manager_secret_version" "jwt_secret_key_version" {
-  secret      = google_secret_manager_secret.jwt_secret_key.id
-  secret_data = "secret123"
-}
-
 # --- VMとサービスアカウントの設定 ---
 
 # MongoDB VMに割り当てるサービスアカウント
