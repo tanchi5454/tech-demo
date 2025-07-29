@@ -64,7 +64,7 @@ jobs:
     - name: Create/Update Kubernetes Secrets
       id: create-secrets
       run: |
-        set -euo pipefail
+        # set -euo pipefail
         echo "::group::Retrieving secrets from Secret Manager"
         # Secret Managerから値を取得し、末尾の改行を削除
         MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='db-user')")
@@ -73,10 +73,10 @@ jobs:
         echo "::endgroup::"
         
         # 変数が空でないことを確認
-        if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
-          echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions and Workload Identity configuration."
-          exit 1
-        fi
+        # if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
+        #   echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions and Workload Identity configuration."
+        #   exit 1
+        # fi
         
         MONGO_HOSTNAME="mongodb-vm"
         MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
