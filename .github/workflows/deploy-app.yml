@@ -67,8 +67,8 @@ jobs:
         set -euo pipefail
         
         MONGO_HOSTNAME="mongodb-vm"
-        MONGO_URI="mongodb://wizadmin:ThisIsAStrongPassword123!@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
-        JWT_KEY="a-very-secure-and-random-jwt-secret-key"
+        MONGO_URI="mongodb://wizadmin:wizpassword@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+        JWT_KEY="secret123"
         
         echo "Constructed MONGODB_URI (password hidden): mongodb://wizadmin:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
 
