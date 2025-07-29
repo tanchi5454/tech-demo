@@ -98,8 +98,8 @@ jobs:
         # --- ★★★ デバッグモード設定 ★★★ ---
         # 以下の行のコメントを外すと、コンテナはアプリケーションを起動せず、1時間スリープします。
         # これにより、PodがCrashLoopBackOffになるのを防ぎ、`kubectl exec`でコンテナ内に入って調査できます。
-        # echo "Applying debug command to deployment..."
-        # sed -i '/ports:/a \ \ \ \ \ \ \ \ command: ["/bin/sh", "-c", "sleep 3600"]' k8s/02-deployment.yaml
+        echo "Applying debug command to deployment..."
+        sed -i '/ports:/a \ \ \ \ \ \ \ \ command: ["/bin/sh", "-c", "sleep 600"]' k8s/02-deployment.yaml
 
         kubectl apply -f k8s/
 
