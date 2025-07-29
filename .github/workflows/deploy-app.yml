@@ -67,8 +67,8 @@ jobs:
         set -euo pipefail
         
         MONGO_HOSTNAME="mongodb-vm"
-        MONGO_URI="mongodb://wizadmin:wizpassword@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
-        JWT_KEY="secret123"
+        MONGO_URI="mongodb://wizadmin:ThisIsAStrongPassword123!@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+        JWT_KEY="a-very-secure-and-random-jwt-secret-key"
         
         echo "Constructed MONGODB_URI (password hidden): mongodb://wizadmin:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
 
@@ -90,7 +90,13 @@ jobs:
       run: |
         FULL_IMAGE_PATH="${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
         sed -i "s|image: __IMAGE_PLACEHOLDER__|image: ${FULL_IMAGE_PATH}|g" k8s/02-deployment.yaml
+        
+        # ★★★ 修正: Secret更新後にDeploymentを再起動し、新しい値を確実に読み込ませる ★★★
+        echo "Applying Kubernetes manifests..."
         kubectl apply -f k8s/
+        
+        echo "Restarting deployment to apply secret changes..."
+        kubectl rollout restart deployment wiz-app-deployment
 
     # 8. 実行中のコンテナ内でwizexercise.txtの存在と内容を検証
     - name: Verify wizexercise.txt in running container
