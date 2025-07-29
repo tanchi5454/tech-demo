@@ -77,12 +77,23 @@ jobs:
           --from-literal=SECRET_KEY="$JWT_KEY" \
           --dry-run=client -o yaml | kubectl apply -f -
 
-    # ★★★ 追加: 作成されたSecretを検証するステップ ★★★
+    # ★★★ 修正: 作成されたSecretをより詳細に検証するステップ ★★★
     - name: Verify Kubernetes Secret
       run: |
-        echo "Verifying that the MONGODB_URI key exists in the secret..."
-        # このコマンドは、キーが存在しない場合や値が空の場合に失敗します
-        kubectl get secret wiz-app-secrets -o jsonpath='{.data.MONGODB_URI}' | base64 --decode | grep "mongodb://"
+        echo "Verifying secret content from cluster..."
+        # 安定性のために少し待機
+        sleep 5
+        
+        # クラスタから直接値を読み戻してデコード
+        DECODED_URI=$(kubectl get secret wiz-app-secrets -o jsonpath='{.data.MONGODB_URI}' | base64 --decode)
+        
+        echo "Decoded URI from cluster: ${DECODED_URI}"
+
+        # 値が正しいか検証
+        if [[ "${DECODED_URI}" != "mongodb://wizadmin:ThisIsAStrongPassword123!@mongodb-vm:27017/todo_db?authSource=admin" ]]; then
+          echo "::error::Verification failed! The MONGODB_URI in the cluster is incorrect."
+          exit 1
+        fi
         echo "Secret verified successfully."
 
     # 7. KubernetesマニフェストをGKEにデプロイ
@@ -91,7 +102,6 @@ jobs:
         FULL_IMAGE_PATH="${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
         sed -i "s|image: __IMAGE_PLACEHOLDER__|image: ${FULL_IMAGE_PATH}|g" k8s/02-deployment.yaml
         
-        # ★★★ 修正: Secret更新後にDeploymentを再起動し、新しい値を確実に読み込ませる ★★★
         echo "Applying Kubernetes manifests..."
         kubectl apply -f k8s/
         
