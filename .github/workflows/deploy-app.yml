@@ -68,7 +68,7 @@ jobs:
         echo "::group::Retrieving secrets from Secret Manager"
         # Secret Managerから値を取得し、末尾の改行を削除
         MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='db-user')")
-        MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='db-pass')")
+        MONGO_PASS=$(echo -n "$(gcloud secrets versions access latest --secret='db-pass')")
         JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='secret-key')")
         echo "::endgroup::"
         
