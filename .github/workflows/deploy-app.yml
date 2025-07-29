@@ -60,23 +60,26 @@ jobs:
         docker build -t ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -f app/Dockerfile ./
         docker push ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-    # 6. Secret Managerから機密情報を取得し、Kubernetes Secretを作成
+    # 6. GitHub Secretsから機密情報を取得し、Kubernetes Secretを作成
     - name: Create/Update Kubernetes Secrets
       id: create-secrets
+      env:
+        MONGO_USER: ${{ secrets.MONGO_USER }}
+        MONGO_PASS: ${{ secrets.MONGO_PASS }}
+        JWT_KEY: ${{ secrets.JWT_KEY }}
       run: |
         set -euo pipefail
-        MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-user')")
-        MONGO_PASS=$(echo -n "$(gcloud secrets versions access latest --secret='mongodb-password')")
-        JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='jwt-secret-key')")
         
         if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
-          echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions and Workload Identity configuration."
+          echo "::error::Required secrets (MONGO_USER, MONGO_PASS, JWT_KEY) are not set in GitHub repository secrets."
           exit 1
         fi
         
         MONGO_HOSTNAME="mongodb-vm"
         MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
         
+        echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+
         kubectl create secret generic wiz-app-secrets \
           --from-literal=MONGODB_URI="$MONGO_URI" \
           --from-literal=SECRET_KEY="$JWT_KEY" \
