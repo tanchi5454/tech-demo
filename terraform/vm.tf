@@ -31,7 +31,7 @@ resource "google_secret_manager_secret_version" "mongodb_password_version" {
 #  JWTトークン用のSecret Key
 resource "google_secret_manager_secret" "jwt_secret_key" {
   project   = var.project_id
-  secret_id = "jwt-secret-key"
+  secret_id = "secret-key"
   replication {
    auto {}
   }
