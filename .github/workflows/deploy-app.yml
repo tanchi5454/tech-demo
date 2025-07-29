@@ -90,7 +90,7 @@ jobs:
         echo "Decoded URI from cluster: ${DECODED_URI}"
 
         # 値が正しいか検証
-        if [[ "${DECODED_URI}" != "mongodb://wizadmin:ThisIsAStrongPassword123!@mongodb-vm:27017/todo_db?authSource=admin" ]]; then
+        if [[ "${DECODED_URI}" != "mongodb://wizadmin:wizpassword@mongodb-vm:27017/todo_db?authSource=admin" ]]; then
           echo "::error::Verification failed! The MONGODB_URI in the cluster is incorrect."
           exit 1
         fi
