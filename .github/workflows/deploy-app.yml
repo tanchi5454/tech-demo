@@ -60,31 +60,30 @@ jobs:
         docker build -t ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -f app/Dockerfile ./
         docker push ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-    # 6. GitHub Secretsから機密情報を取得し、Kubernetes Secretを作成
+    # 6. ★★★ 修正: 認証情報なしのMONGO_URIを構築 ★★★
     - name: Create/Update Kubernetes Secrets
       id: create-secrets
-      # GitHubリポジトリに設定されたSecretsを、このステップの環境変数として読み込みます
-      env:
-        MONGO_USER: ${{ secrets.MONGO_USER }}
-        MONGO_PASS: ${{ secrets.MONGO_PASS }}
-        JWT_KEY: ${{ secrets.JWT_KEY }}
       run: |
         set -euo pipefail
 
-        # GitHub Secretsが設定されているか確認
-        if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
-          echo "::error::Required secrets (MONGO_USER, MONGO_PASS, JWT_KEY) are not set in GitHub repository secrets."
-          exit secret_faild
+        echo "::group::Retrieving secrets from Secret Manager"
+        # JWT_KEYのみSecret Managerから取得
+        JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='jwt-secret-key')")
+        echo "::endgroup::"
+        
+        if [ -z "$JWT_KEY" ]; then
+          echo "::error::Failed to retrieve JWT_KEY from Secret Manager."
+          exit 1
         fi
         
         MONGO_HOSTNAME="mongodb-vm"
         
-        # 接続文字列を構築。変数はダブルクォート内で正しく展開される
-        MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+        # ★★★ 認証情報を含まない接続文字列を構築 ★★★
+        MONGO_URI="mongodb://${MONGO_HOSTNAME}:27017"
         
-        echo "Constructed MONGODB_URI (password hidden): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
+        echo "Constructed MONGODB_URI: ${MONGO_URI}"
 
-        # Kubernetes Secretを作成。ここでも変数はダブルクォートで囲むのが安全
+        # Kubernetes Secretを作成
         kubectl create secret generic wiz-app-secrets \
           --from-literal=MONGODB_URI="$MONGO_URI" \
           --from-literal=SECRET_KEY="$JWT_KEY" \
@@ -104,7 +103,6 @@ jobs:
         echo "Waiting for new pods to be ready..."
         kubectl wait --for=condition=ready pod -l app=wiz-app --timeout=180s
         
-        # コンテナが安定するまで少し待機
         sleep 5
 
         POD_NAME=$(kubectl get pods -l app=wiz-app --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
@@ -125,6 +123,5 @@ jobs:
           echo "--- Describing pod: $POD_NAME ---"
           kubectl describe pod $POD_NAME
           echo "--- Logs from pod: $POD_NAME (previous) ---"
-          # --previousフラグで、クラッシュする直前のログを取得
           kubectl logs $POD_NAME --all-containers=true --previous
         done
