@@ -72,10 +72,4 @@ resource "google_compute_instance" "mongodb_vm" {
 
   tags = ["mongodb-vm"]
 
-  # TerraformがSecretの作成を待ってからVMを作成するように依存関係を明示
-  depends_on = [
-    google_secret_manager_secret_version.mongodb_user_version,
-    google_secret_manager_secret_version.mongodb_password_version,
-    google_secret_manager_secret_version.jwt_secret_key_version,
-  ]
 }
