@@ -1,46 +1,5 @@
 # vm.tf
 
-# --- VMとサービスアカウントの設定 ---
-
-# MongoDB VMに割り当てるサービスアカウント
-resource "google_service_account" "mongodb_vm_sa" {
-  account_id   = "mongodb-vm-sa"
-  display_name = "Service Account for MongoDB VM"
-}
-
-# サービスアカウントに過剰な権限を付与（要件）
-resource "google_project_iam_member" "vm_iam_compute" {
-  project = var.project_id
-  role    = "roles/compute.admin" // VM作成などが可能な強い権限
-  member  = "serviceAccount:${google_service_account.mongodb_vm_sa.email}"
-}
-# サービスアカウントにLogging Writer の権限を付与
-resource "google_project_iam_member" "logging_writer" {
-  project = var.project_id
-  role    = "roles/logging.logWriter"
-  member  =  "serviceAccount:${google_service_account.mongodb_vm_sa.email}"
-}
-
-# サービスアカウントにSecret Managerへのアクセス権を付与
-resource "google_project_iam_member" "vm_iam_secret_accessor" {
-  project = var.project_id
-  role    = "roles/secretmanager.secretAccessor"
-  member  = "serviceAccount:${google_service_account.mongodb_vm_sa.email}"
-}
-
-# 既に手動で作成したサービスアカウントをデータソースとして参照
-data "google_service_account" "github_actions_sa" {
-  account_id = "iac-operations-sa"
-}
-
-# GitHub ActionsのサービスアカウントにSecret Managerへのアクセス権を付与
-resource "google_project_iam_member" "github_actions_secret_accessor" {
-  project = var.project_id
-  role    = "roles/secretmanager.secretAccessor"
-  member  = "serviceAccount:${data.google_service_account.github_actions_sa.email}"
-}
-
-# MongoDB用のVMインスタンス
 resource "google_compute_instance" "mongodb_vm" {
   name         = "mongodb-vm"
   machine_type = "e2-medium"
@@ -59,17 +18,18 @@ resource "google_compute_instance" "mongodb_vm" {
     }
   }
 
+  # main.tf で作成したサービスアカウントをこのVMに割り当てます
   service_account {
     email  = google_service_account.mongodb_vm_sa.email
     scopes = ["cloud-platform"]
   }
 
-  # 起動スクリプトでSecret Managerから認証情報を取得
+  # 起動スクリプトを外部ファイルから読み込みます
   metadata = {
-    # file() 関数で外部スクリプトファイルを指定
-    startup-script = file("startup-script.sh")
+    startup-script = file("${path.module}/startup-script.sh")
   }
 
-  tags = ["mongodb-vm"]
+  # main.tf のファイアウォールルールが適用されるようにタグを設定します
+  tags = ["mongodb-server"]
 
 }
