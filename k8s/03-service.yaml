@@ -1,14 +1,19 @@
-# Deploymentをクラスタ内で公開するためのService
+# Webアプリケーションを外部に公開するためのLoadBalancer Serviceを定義します。
 apiVersion: v1
 kind: Service
 metadata:
   name: wiz-app-service
 spec:
-  # type: ClusterIPがデフォルト。クラスタ内部からのみアクセス可能なIPを割り当てる
-  type: ClusterIP
+  # このServiceを外部からアクセス可能なロードバランサーとして公開します。
+  # GKEは自動的にGoogle Cloud Load Balancerを作成します。
+  type: LoadBalancer
+  # このServiceがトラフィックを転送する対象のPodを選択します。
+  # 'app: wiz-app' ラベルを持つPodが対象となります。
   selector:
-    app: wiz-app # このラベルを持つPodにトラフィックを転送する
+    app: wiz-app
   ports:
-  - protocol: TCP
-    port: 80 # Serviceが公開するポート
-    targetPort: 8080 # Pod内のコンテナがリッスンしているポート
+    - protocol: TCP
+      # ロードバランサーがリッスンするポート
+      port: 80
+      # Pod内のコンテナがリッスンするポート
+      targetPort: 8080
