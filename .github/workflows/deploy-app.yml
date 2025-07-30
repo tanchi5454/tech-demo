@@ -68,6 +68,8 @@ jobs:
         echo "::group::Retrieving secrets from Secret Manager"
         MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='db-user')")
         MONGO_PASS=$(echo -n "$(gcloud secrets versions access latest --secret='db-pass')")
+        JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='secret-key')")
+        echo "::endgroup::"
         
         # 値が取得できたか確認（パスワード等は出力しない）
         if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
