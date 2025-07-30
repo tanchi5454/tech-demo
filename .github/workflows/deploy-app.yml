@@ -64,26 +64,23 @@ jobs:
     - name: Create/Update Kubernetes Secrets
       id: create-secrets
       run: |
-        set -x
-        echo "::group::Retrieving secrets from Secret Manager"
-        MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='db-user')")
-        MONGO_PASS=$(echo -n "$(gcloud secrets versions access latest --secret='db-pass')")
-        echo "::endgroup::"
+        MONGO_USER=$(gcloud secrets versions access latest --secret=db-user)
+        MONGO_PASS=$(gcloud secrets versions access latest --secret=db-pass)
+        SECRET_KEY=$(gcloud secrets versions access latest --secret=secret-key)
+        MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@mongodb-vm:27017/todo_db?authSource=admin"
         
-        # 値が取得できたか確認（パスワード等は出力しない）
-        if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ]; then
-           echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions and Workload Identity configuration."
-           exit 1
-         fi
+        # --- ここからデバッグコードを追加 ---
+          echo "--- DEBUGGING SECRET VALUES ---"
+          echo "Value for MONGO_URI: ${MONGO_URI}"
+          echo "Value for SECRET_KEY: ${SECRET_KEY}"
+          echo "--- END DEBUG ---"
+          # --- ここまでデバッグコード ---
         
-        MONGO_HOSTNAME="mongodb-vm"
-        
-        echo "Constructed MONGODB_URI (hidden password): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
-
-        kubectl create secret generic wiz-app-secrets \
-          --from-literal=MONGODB_URI=${MONGO_URI=mongodb://${MONGO_USER}:${MONGO_PASS}@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin} \
-          --from-literal=SECRET_KEY=$(gcloud secrets versions access latest --secret='secret-key') \
-          --dry-run=client -o yaml | kubectl apply -f -
+        # 元のkubectlコマンド
+          kubectl create secret generic wiz-app-secrets \
+            --from-literal=MONGODB_URI="$MONGO_URI" \
+            --from-literal=SECRET_KEY="$SECRET_KEY" \
+            --dry-run=client -o yaml | kubectl apply -f -
 
     # 7. KubernetesマニフェストをGKEにデプロイ
     - name: Deploy to GKE
