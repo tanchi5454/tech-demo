@@ -68,15 +68,8 @@ jobs:
         echo "::group::Retrieving secrets from Secret Manager"
         MONGO_USER=$(echo -n "$(gcloud secrets versions access latest --secret='db-user')")
         MONGO_PASS=$(echo -n "$(gcloud secrets versions access latest --secret='db-pass')")
-        JWT_KEY=$(echo -n "$(gcloud secrets versions access latest --secret='secret-key')")
         echo "::endgroup::"
-        
-        # 値が取得できたか確認（パスワード等は出力しない）
-        if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$JWT_KEY" ]; then
-           echo "::error::Failed to retrieve one or more secrets from Secret Manager. Check IAM permissions and Workload Identity configuration."
-           exit 1
-         fi
-        
+
         MONGO_HOSTNAME="mongodb-vm"
         
         echo "Constructed MONGODB_URI (hidden password): mongodb://${MONGO_USER}:***@${MONGO_HOSTNAME}:27017/todo_db?authSource=admin"
