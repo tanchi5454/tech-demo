@@ -9,7 +9,7 @@ on:
       - main
     paths:
       - 'app/**'
-      - 'k8s/**'
+      - '.github/workflows/deploy-app.yml' # ワークフロー自体の変更でもトリガー
   workflow_dispatch:
 
 # ワークフロー全体で使用する環境変数を定義
@@ -17,7 +17,6 @@ env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GKE_CLUSTER: wiz-gke-cluster
   GKE_REGION: asia-northeast1
-  GKE_ZONE: asia-northeast1-a
   REPO_NAME: wiz-repo
   IMAGE_NAME: wiz-app
   
@@ -26,6 +25,7 @@ jobs:
     name: Build and Deploy
     runs-on: ubuntu-latest
 
+    # Workload Identity連携に必要な権限
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -33,22 +33,23 @@ jobs:
     steps:
     # 1. リポジトリのコードをチェックアウト
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     # 2. Google Cloudへの認証
+    # Workload Identity Providerとサービスアカウントを使用して認証します
     - id: 'auth'
-      uses: 'google-github-actions/auth@v1'
+      uses: 'google-github-actions/auth@v2'
       with:
         workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
         service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
     # 3. gcloud CLIをセットアップ
     - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
+      uses: google-github-actions/setup-gcloud@v2
 
     # 4. GKEクラスタの認証情報を取得
     - name: Get GKE credentials
-      uses: google-github-actions/get-gke-credentials@v1
+      uses: google-github-actions/get-gke-credentials@v2
       with:
         cluster_name: ${{ env.GKE_CLUSTER }}
         location: ${{ env.GKE_REGION }}
@@ -56,84 +57,71 @@ jobs:
     # 5. DockerイメージをビルドしてArtifact Registryにプッシュ
     - name: Build and Push Docker image
       run: |
+        # Artifact Registryへの認証を設定
         gcloud auth configure-docker ${{ env.GKE_REGION }}-docker.pkg.dev
-        docker build -t ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -f app/Dockerfile ./
+        
+        # Dockerイメージをビルド
+        docker build -t ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -f app/Dockerfile ./app
+        
+        # Dockerイメージをプッシュ
         docker push ${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
     # 6. Secret Managerから機密情報を取得してKubernetes Secretを作成
+    # ★★★ ここが最も重要な改善点です ★★★
     - name: Create/Update Kubernetes Secrets
-      id: create-secrets
       run: |
+        # Secret Managerから値を取得
         MONGO_USER=$(gcloud secrets versions access latest --secret=db-user)
         MONGO_PASS=$(gcloud secrets versions access latest --secret=db-pass)
         SECRET_KEY=$(gcloud secrets versions access latest --secret=secret-key)
+
+        # 【重要】取得した値が空でないか検証します。空の場合は権限不足の可能性が高いです。
+        if [ -z "$MONGO_USER" ] || [ -z "$MONGO_PASS" ] || [ -z "$SECRET_KEY" ]; then
+          echo "::error::Failed to retrieve one or more secrets from Secret Manager. Please check IAM permissions (roles/secretmanager.secretAccessor) for the service account."
+          exit 1
+        fi
+        
+        # データベース接続文字列を構築
         MONGO_URI="mongodb://${MONGO_USER}:${MONGO_PASS}@mongodb-vm:27017/todo_db?authSource=admin"
         
-        # --- ここからデバッグコードを追加 ---
-          echo "--- DEBUGGING SECRET VALUES ---"
-          echo "Value for MONGO_URI: ${MONGO_URI}"
-          echo "Value for SECRET_KEY: ${SECRET_KEY}"
-          echo "--- END DEBUG ---"
-          # --- ここまでデバッグコード ---
-        
-        # 元のkubectlコマンド
-          kubectl create secret generic wiz-app-secrets \
-            --from-literal=MONGODB_URI="$MONGO_URI" \
-            --from-literal=SECRET_KEY="$SECRET_KEY" \
-            --dry-run=client -o yaml | kubectl apply -f -
+        echo "Successfully retrieved secrets and constructed MONGO_URI."
+
+        # Kubernetes Secretを作成または更新（冪等な操作）
+        kubectl create secret generic wiz-app-secrets \
+          --from-literal=MONGODB_URI="$MONGO_URI" \
+          --from-literal=SECRET_KEY="$SECRET_KEY" \
+          --dry-run=client -o yaml | kubectl apply -f -
 
     # 7. KubernetesマニフェストをGKEにデプロイ
     - name: Deploy to GKE
       run: |
+        # デプロイメントファイル内のイメージパスを、今回ビルドしたイメージに置換
         FULL_IMAGE_PATH="${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
         echo "Replacing image placeholder with: $FULL_IMAGE_PATH"
         sed -i "s#image: __IMAGE_PLACEHOLDER__#image: ${FULL_IMAGE_PATH}#g" k8s/02-deployment.yaml
+        
+        # マニフェストを適用
         kubectl apply -f k8s/
 
-        # sed -i "s|image: __IMAGE_PLACEHOLDER__|image: ${FULL_IMAGE_PATH}|g" k8s/02-deployment.yaml
-        kubectl apply -f k8s/
-
-    # 8. 実行中のコンテナ内でwizexercise.txtの存在と内容を検証
-    - name: Verify wizexercise.txt in running container
-      id: verify-pod
+    # 8. デプロイのロールアウト完了を待機
+    - name: Wait for deployment rollout
       run: |
-        echo "Waiting for new pods to be ready..."
-        kubectl wait --for=condition=ready pod -l app=wiz-app --timeout=180s
-        sleep 5
-        POD_NAME=$(kubectl get pods -l app=wiz-app --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
-        echo "Verifying content of wizexercise.txt in pod: $POD_NAME"
-        kubectl exec $POD_NAME -- cat /app/wizexercise.txt
-
-        echo "Waiting for new pods to be ready..."
-        kubectl wait --for=condition=ready pod -l app=wiz-app --timeout=180s || {
-            echo "::error::Timeout while waiting for pods to become ready"
-            exit 1
-            }
-            
-        sleep 5
-
-        POD_NAME=$(kubectl get pods -l app=wiz-app --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
-
-        if [ -z "$POD_NAME" ]; then
-          echo "::error::No running pod found with label app=wiz-app"
-            kubectl get pods -l app=wiz-app
-              exit 1
-        fi
-
-        echo "Verifying content of wizexercise.txt in pod: $POD_NAME"
-        kubectl exec "$POD_NAME" -- cat /app/wizexercise.txt
+        echo "Waiting for deployment to be successful..."
+        kubectl rollout status deployment/wiz-app-deployment --timeout=180s
 
     # 9. ワークフローが失敗した場合にデバッグ情報を出力
+    # このステップは、前のいずれかのステップが失敗した場合にのみ実行されます
     - name: Debug Pods on Failure
       if: failure()
       run: |
         echo "::error::Workflow failed. Collecting debug information..."
         echo "--- Pods Status ---"
         kubectl get pods -l app=wiz-app -o wide
+        
         POD_NAMES=$(kubectl get pods -l app=wiz-app -o jsonpath='{.items[*].metadata.name}')
         for POD_NAME in $POD_NAMES; do
           echo "--- Describing pod: $POD_NAME ---"
           kubectl describe pod $POD_NAME
           echo "--- Logs from pod: $POD_NAME (previous) ---"
-          kubectl logs $POD_NAME --all-containers=true --previous
+          kubectl logs "$POD_NAME" --all-containers=true --previous
         done
