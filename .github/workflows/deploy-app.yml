@@ -91,7 +91,10 @@ jobs:
     - name: Deploy to GKE
       run: |
         FULL_IMAGE_PATH="${{ env.GKE_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
-        sed -i'' -e "..."
+        echo "Replacing image placeholder with: $FULL_IMAGE_PATH"
+        sed -i "s#image: __IMAGE_PLACEHOLDER__#image: ${FULL_IMAGE_PATH}#g" k8s/02-deployment.yaml
+        kubectl apply -f k8s/
+
         # sed -i "s|image: __IMAGE_PLACEHOLDER__|image: ${FULL_IMAGE_PATH}|g" k8s/02-deployment.yaml
         kubectl apply -f k8s/
 
