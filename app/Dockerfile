@@ -14,7 +14,7 @@ WORKDIR /app
 COPY --from=build  /go/src/tasky/tasky .
 COPY --from=build  /go/src/tasky/assets ./assets
 # --- 追記 ---
-COPY app/wizexercise.txt .
+COPY wizexercise.txt .
 
 EXPOSE 8080
 ENTRYPOINT ["/app/tasky"]
